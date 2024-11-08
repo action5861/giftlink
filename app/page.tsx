@@ -1,3 +1,10 @@
+
+
+
+'use client';
+import Link from 'next/link';
+
+
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col">
@@ -7,15 +14,16 @@ export default function Home() {
           Simple Gifts, Meaningful Connections
         </h1>
         <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl">
-          Direct 1:1 essentials donation platform that connects you with those in need. Make a difference with just a few clicks.
+          Direct 1:1 essentials donation platform that connects you with those in need.
+          Make a difference with just a few clicks.
         </p>
         <div className="mt-10 flex items-center gap-x-6">
-          <a href="/auth/signup" className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700">
-            Start Giving
-          </a>
-          <a href="/dashboard" className="rounded-md border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-50">
+          <Link href="/stories" className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700">
             Browse Stories
-          </a>
+          </Link>
+          <Link href="/stories" className="rounded-md border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-50">
+            Start Giving
+          </Link>
         </div>
       </section>
 

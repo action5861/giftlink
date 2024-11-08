@@ -1,8 +1,5 @@
 // types/story.ts
-
-export type StoryStatus = 'waiting' | 'matched' | 'completed';
-
-// Category 타입 추가
+export type StoryStatus = 'waiting' | 'completed';
 export type Category = 'all' | 'student' | 'elderly' | 'family' | 'urgent';
 
 export interface Story {
@@ -12,17 +9,18 @@ export interface Story {
   age: number;
   gender: '남' | '여';
   situation: string;
-  category: Category;  // category 필드 추가
+  category: Category;
   essentialItem: {
     name: string;
     description: string;
+    coupangUrl: string;    // 쿠팡 상품 링크 추가
+    priceRange: string;    // 가격대 정보 추가
   };
   story: string;
   imagePrompt: string;
   imageUrl?: string;
   createdAt: Date;
   updatedAt: Date;
-  matchedAt?: Date;
   completedAt?: Date;
 }
 
@@ -31,10 +29,12 @@ export interface CreateStoryData {
   age: number;
   gender: '남' | '여';
   situation: string;
-  category: Category;  // category 필드 추가
+  category: Category;
   essentialItem: {
     name: string;
     description: string;
+    coupangUrl: string;    // 쿠팡 상품 링크 추가
+    priceRange: string;    // 가격대 정보 추가
   };
   story: string;
   imagePrompt: string;

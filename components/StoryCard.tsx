@@ -1,99 +1,95 @@
-// components/StoryCard.tsx 수정
+// components/StoryCard.tsx
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import { Story } from '@/types/story';
+import { ExternalLink } from 'lucide-react'; // 외부 링크 아이콘
 
 interface StoryCardProps {
  story: Story;
- onMatch?: (storyId: string) => void;
 }
 
-export default function StoryCard({ story, onMatch }: StoryCardProps) {
+export default function StoryCard({ story }: StoryCardProps) {
  const [isLoading, setIsLoading] = useState(false);
- const [imageUrl, setImageUrl] = useState<string | null>(null);
- const [imageError, setImageError] = useState(false);
 
- useEffect(() => {
-   const generateImage = async () => {
-     try {
-       const response = await fetch('/api/generate-image', {
-         method: 'POST',
-         headers: {
-           'Content-Type': 'application/json',
-         },
-         body: JSON.stringify({ prompt: story.imagePrompt }),
-       });
-
-       const data = await response.json();
-       if (data.url) {
-         setImageUrl(data.url);
-       }
-     } catch (error) {
-       console.error('Image generation failed:', error);
-       setImageError(true);
-     }
-   };
-
-   generateImage();
- }, [story.imagePrompt]);
+ const handleCoupangClick = () => {
+   // 쿠팡 링크로 새 창에서 열기
+   window.open(story.essentialItem.coupangUrl, '_blank');
+ };
 
  return (
-   <div className="bg-white rounded-lg shadow-md overflow-hidden max-w-sm mx-auto hover:shadow-lg transition-shadow">
-     {/* 이미지 섹션 - 비율 수정 */}
+   <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-sm mx-auto hover:shadow-xl transition-shadow duration-300">
+     {/* 이미지 섹션 */}
      <div className="relative w-full aspect-[4/3]">
-       {imageUrl ? (
+       {story.imageUrl ? (
          <Image
-           src={imageUrl}
+           src={story.imageUrl}
            alt={story.title}
            fill
-           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
            className="object-cover"
            priority
-           onError={() => setImageError(true)}
          />
        ) : (
-         <div className="absolute inset-0 flex items-center justify-center text-gray-500 bg-gray-100">
-           {imageError ? 'Image generation failed' : 'Generating image...'}
+         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+           <div className="text-gray-400">이미지 준비중...</div>
+         </div>
+       )}
+       {/* 스토리 상태 배지 */}
+       <div className="absolute top-2 right-2">
+         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+           story.status === 'waiting' 
+             ? 'bg-green-100 text-green-800'
+             : 'bg-gray-100 text-gray-800'
+         }`}>
+           {story.status === 'waiting' ? '도움이 필요해요' : '지원 완료'}
+         </span>
+       </div>
+     </div>
+
+     {/* 컨텐츠 섹션 */}
+     <div className="p-4">
+       <h3 className="text-lg font-semibold text-gray-900 mb-2">
+         {story.title}
+       </h3>
+       
+       <div className="text-sm text-gray-600 mb-3">
+         <p>나이: {story.age}세 / 성별: {story.gender}</p>
+         <p className="mt-1">{story.situation}</p>
+       </div>
+
+       {/* 필요한 물품 정보 */}
+       <div className="bg-blue-50 p-3 rounded-md mb-4">
+         <h4 className="font-medium text-sm text-gray-900 mb-1">필요한 물품</h4>
+         <p className="text-blue-600 font-medium">{story.essentialItem.name}</p>
+         <p className="text-sm text-gray-600 mt-1">{story.essentialItem.description}</p>
+         <p className="text-sm text-blue-600 mt-2 font-medium">
+           예상 가격: {story.essentialItem.priceRange}
+         </p>
+       </div>
+
+       {/* 구매 버튼 */}
+       {story.status === 'waiting' && (
+         <button
+           onClick={handleCoupangClick}
+           className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+         >
+           <ExternalLink className="w-4 h-4" />
+           <span>쿠팡에서 물품 구매하기</span>
+         </button>
+       )}
+
+       {story.status === 'completed' && (
+         <div className="text-center text-gray-500 py-2">
+           지원이 완료된 스토리입니다
          </div>
        )}
      </div>
 
-     {/* 컨텐츠 섹션 - 여백 및 텍스트 크기 수정 */}
-     <div className="p-4">
-       <h3 className="text-lg font-semibold text-gray-900 mb-1">
-         {story.title}
-       </h3>
-       
-       <div className="text-xs text-gray-600 mb-3">
-         <p>나이: {story.age}세 / 성별: {story.gender}</p>
-         <p className="mt-0.5">{story.situation}</p>
-       </div>
-
-       <div className="mb-3 p-3 bg-blue-50 rounded">
-         <h4 className="font-medium text-gray-900 mb-0.5 text-sm">필요한 물품</h4>
-         <p className="text-blue-600 font-medium text-sm">{story.essentialItem.name}</p>
-         <p className="text-xs text-gray-600 mt-0.5">
-           {story.essentialItem.description}
-         </p>
-       </div>
-
-       <p className="text-xs text-gray-700 mb-4 line-clamp-3 leading-relaxed">
+     {/* 스토리 내용 */}
+     <div className="px-4 pb-4">
+       <p className="text-sm text-gray-600 line-clamp-3">
          {story.story}
        </p>
-
-       <button
-         onClick={() => onMatch?.(story.id)}
-         disabled={isLoading || story.status !== 'waiting'}
-         className={`w-full py-2 px-3 rounded text-white font-medium text-sm transition-colors
-           ${story.status === 'waiting' 
-             ? 'bg-blue-600 hover:bg-blue-700' 
-             : 'bg-gray-400'}`}
-       >
-         {story.status === 'waiting' 
-           ? (isLoading ? '매칭 중...' : '도움의 손길 보내기')
-           : '매칭 완료'}
-       </button>
      </div>
    </div>
  );
