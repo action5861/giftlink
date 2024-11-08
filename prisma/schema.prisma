@@ -1,0 +1,45 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env.DATABASE_URL
+}
+
+model Story {
+  id          String      @id @default(cuid())
+  status      String      // 'waiting' | 'matched' | 'completed'
+  title       String
+  age         Int
+  gender      String      // '남' | '여'
+  situation   String
+  story       String      @db.Text
+  imagePrompt String      @db.Text
+  imageUrl    String?     
+  
+  essentialItem Json      // { name: string, description: string }
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  matchedAt   DateTime?
+  completedAt DateTime?
+
+  // 관계 설정
+  donations   Donation[]
+}
+
+model Donation {
+  id          String    @id @default(cuid())
+  storyId     String
+  status      String    // 'pending' | 'completed'
+  donorName   String?
+  donorEmail  String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  story       Story     @relation(fields: [storyId], references: [id])
+}
