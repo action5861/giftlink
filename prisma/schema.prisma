@@ -1,0 +1,163 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  password      String    
+  name          String
+  phone         String?
+  role          UserRole        @default(DONOR)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  donationGoals    DonationGoal[]
+  donationReceipts DonationReceipt[]
+
+  // 관계 설정
+  donations     Donation[] 
+  adminStories  Story[]   
+  comments      StoryComment[]  // 이 부분 추가
+  notifications UserNotification[]
+}
+
+model Story {
+  id              String          @id @default(cuid())
+  adminId         String    
+  age             Int
+  gender          String
+  region          String    
+  story           String          @db.Text  
+  status          StoryStatus     @default(PENDING)
+  beneficiaryName String?   
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // 관계 설정
+  admin           User            @relation(fields: [adminId], references: [id])
+  items           StoryItem[] 
+  donations       Donation[] 
+  comments        StoryComment[]
+}
+
+model StoryItem {
+  id          String      @id @default(cuid())
+  storyId     String
+  name        String    
+  category    String    
+  quantity    Int       
+  status      ItemStatus @default(NEEDED)
+  description String?
+  imageUrl    String?
+  price       Int?
+  priority    Int       @default(0)
+
+  // 관계 설정
+  story       Story       @relation(fields: [storyId], references: [id])
+  donations   Donation[] 
+}
+
+model Donation {
+  id          String          @id @default(cuid())
+  donorId     String    
+  storyId     String    
+  itemId      String    
+  status      DonationStatus  @default(PENDING)
+  amount      Int       
+  trackingNum String?   
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // 추가 필드
+  message     String?   
+  anonymous   Boolean         @default(false)
+  paymentInfo Json?     
+
+  // 관계 설정
+  donor       User            @relation(fields: [donorId], references: [id])
+  story       Story           @relation(fields: [storyId], references: [id])
+  item        StoryItem       @relation(fields: [itemId], references: [id])
+}
+
+model StoryComment {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  story     Story    @relation(fields: [storyId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model UserNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model DonationGoal {
+  id        String   @id @default(cuid())
+  userId    String
+  year      Int
+  amount    Int      // Float 대신 Int 사용 (기존 Donation 모델과 일치)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year])
+}
+
+model DonationReceipt {
+  id        String           @id @default(cuid())
+  userId    String
+  period    String          // "2024-Q1", "2024-YEAR" 등
+  status    ReceiptStatus   @default(PENDING)
+  fileUrl   String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id])
+}
+
+enum ReceiptStatus {
+  PENDING
+  ISSUED
+  FAILED
+}
+
+enum UserRole {
+  DONOR     
+  ADMIN     
+}
+
+enum StoryStatus {
+  PENDING   
+  ACTIVE    
+  COMPLETED 
+  REJECTED  
+}
+
+enum ItemStatus {
+  NEEDED    
+  FULFILLED 
+}
+
+enum DonationStatus {
+  PENDING   
+  PAID      
+  SHIPPING  
+  DELIVERED 
+  CANCELLED 
+}
