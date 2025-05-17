@@ -1,0 +1,351 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String     @id @default(cuid())
+  name             String?    @db.VarChar(100)
+  email            String     @unique @db.VarChar(255)
+  password         String     @db.VarChar(255)
+  image            String?    @db.VarChar(255)
+  role             UserRole   @default(USER)
+  partnerId        String?
+  partner          Partner?   @relation(fields: [partnerId], references: [id])
+  isActive         Boolean    @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+  isDeleted        Boolean    @default(false)
+  stories          Story[]    // 파트너가 등록한 사연
+  donations        Donation[] // 기부자가 한 기부
+  adminActions     AdminAction[]
+  inviteToken      InviteToken?
+  statusChanges    StoryStatusHistory[] // 상태 변경 이력
+  documents        Document[]
+  apiKeys          ApiKey[]   // API 키
+  sentMessages     Message[]  @relation("SentMessages")
+  favoriteStories  FavoriteStory[] // 관심 등록한 사연 목록
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([isDeleted])
+}
+
+enum UserRole {
+  USER    // 일반 사용자
+  DONOR   // 기부자
+  PARTNER // 파트너 기관 사용자
+  ADMIN   // 관리자
+}
+
+model Partner {
+  id            String     @id @default(cuid())
+  name          String     @db.VarChar(100) // 기관명
+  description   String?    @db.Text // 기관 소개
+  logo          String?    @db.VarChar(255) // 로고 이미지 URL
+  website       String?    @db.VarChar(255) // 웹사이트 URL
+  address       String?    @db.VarChar(255) // 주소
+  phoneNumber   String?    @db.VarChar(20) // 연락처
+  contactPerson String?    @db.VarChar(100) // 담당자 이름
+  isVerified    Boolean    @default(false) // 인증된 파트너 여부
+  users         User[]     // 이 파트너에 소속된 사용자들
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+  isDeleted     Boolean    @default(false)
+
+  @@index([isVerified])
+  @@index([isDeleted])
+}
+
+model InviteToken {
+  id          String    @id @default(cuid())
+  token       String    @unique @db.VarChar(255)
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  isUsed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([expiresAt])
+  @@index([isUsed])
+}
+
+model Story {
+  id              String              @id @default(cuid())
+  title           String              @db.VarChar(200) // 사연 제목
+  content         String              @db.Text // 사연 내용
+  imageUrl        String?             @db.VarChar(255) // 수혜자 이미지 URL
+  imagePrompt     String?             @db.Text // 이미지 생성에 사용된 프롬프트
+  status          StoryStatus         @default(DRAFT) // 사연 상태
+  category        String              @db.VarChar(50) // 카테고리
+  recipientAge    Int                 // 수혜자 나이
+  recipientGender String              @db.VarChar(20) // 수혜자 성별
+  recipientRegion String              @db.VarChar(50) // 수혜자 거주지
+  adminNotes      String?             @db.Text // 관리자 메모
+  adminReviewed   Boolean             @default(false) // 관리자 검토 여부
+  publishedAt     DateTime?           // 게시일
+  items           Item[]              // 필요한 물품 목록
+  donations       Donation[]          // 기부 내역
+  partnerId       String              // 파트너(작성자) ID
+  partner         User                @relation(fields: [partnerId], references: [id])
+  statusHistory   StoryStatusHistory[]  // 상태 변경 이력
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+  isDeleted       Boolean             @default(false)
+  messages        Message[]
+  favoritedBy     FavoriteStory[]     // 관심 등록한 사용자 목록
+
+  @@index([status])
+  @@index([category])
+  @@index([partnerId])
+}
+
+enum StoryStatus {
+  DRAFT      // 파트너 작성 중
+  PENDING    // 관리자 검토 대기 중
+  REVISION   // 수정 요청됨
+  APPROVED   // 승인됨 (이미지 생성 전)
+  PUBLISHED  // 게시됨 (사이트에 공개)
+  FULFILLED  // 기부 완료됨
+  REJECTED   // 거부됨
+}
+
+model StoryStatusHistory {
+  id          String      @id @default(cuid())
+  storyId     String
+  story       Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  fromStatus  StoryStatus
+  toStatus    StoryStatus
+  note        String?     @db.Text // 상태 변경 이유
+  changedById String
+  changedBy   User        @relation(fields: [changedById], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@index([storyId])
+  @@index([changedById])
+  @@index([createdAt])
+}
+
+model Item {
+  id          String      @id @default(cuid())
+  name        String      @db.VarChar(200) // 물품명
+  description String?     @db.Text // 설명
+  price       Float       // 가격
+  coupangUrl  String      @db.VarChar(255) // 쿠팡 상품 URL
+  partnerUrl  String?     @db.VarChar(255) // 쿠팡 파트너스 URL (수익 추적용)
+  imageUrl    String?     @db.VarChar(255) // 물품 이미지
+  priority    Int         @default(1) // 우선순위
+  storyId     String
+  story       Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  donations   Donation[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  isDeleted   Boolean     @default(false)
+
+  @@index([storyId])
+  @@index([priority])
+  @@index([isDeleted])
+}
+
+enum DonationStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Donation {
+  id              String          @id @default(cuid())
+  amount          Int
+  status          DonationStatus  @default(PENDING)
+  trackingNumber  String?         @db.VarChar(100)
+  message         String?         @db.Text
+  thankyouMessage String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  isDeleted       Boolean         @default(false)
+  donorId         String
+  donor           User            @relation(fields: [donorId], references: [id])
+  storyId         String
+  story           Story           @relation(fields: [storyId], references: [id])
+  itemId          String?
+  item            Item?           @relation(fields: [itemId], references: [id])
+
+  @@index([status])
+  @@index([donorId])
+  @@index([storyId])
+  @@index([itemId])
+  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+model AdminAction {
+  id          String       @id @default(cuid())
+  adminId     String
+  admin       User         @relation(fields: [adminId], references: [id])
+  actionType  AdminActionType
+  entityType  String       @db.VarChar(50) // 대상 엔티티 (Story, User, Partner 등)
+  entityId    String       // 대상 엔티티 ID
+  description String       @db.Text // 작업 설명
+  details     String?      @db.Text // 추가 세부 정보 (JSON)
+  createdAt   DateTime     @default(now())
+
+  @@index([adminId])
+  @@index([actionType])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+enum AdminActionType {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  PUBLISH
+  UNPUBLISH
+  IMAGE_GENERATE
+  INVITE_PARTNER
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100) // 설정 키
+  value       String   @db.Text // 설정 값
+  description String?  @db.Text // 설명
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String           @db.VarChar(200)
+  content     String           @db.Text
+  isRead      Boolean          @default(false)
+  relatedId   String?          // 관련 엔티티 ID (Story, Donation 등)
+  relatedType String?          @db.VarChar(50) // 관련 엔티티 타입
+  createdAt   DateTime         @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  STORY_STATUS_CHANGE
+  DONATION_RECEIVED
+  DONATION_COMPLETED
+  SYSTEM_MESSAGE
+  PARTNER_INVITATION
+}
+
+model PartnerInvite {
+  id        String   @id @default(cuid())
+  email     String   @unique @db.VarChar(255)
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String   @db.VarChar(200)
+  content   String   @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  isDeleted Boolean  @default(false)
+
+  @@index([userId])
+  @@index([isDeleted])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  key       String   @unique @db.VarChar(255)
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([key])
+  @@index([isActive])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  senderId  String
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id])
+  storyId   String?
+  story     Story?   @relation(fields: [storyId], references: [id])
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  isDeleted Boolean  @default(false)
+
+  @@index([senderId])
+  @@index([storyId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+model FavoriteStory {
+  id        String   @id @default(cuid())
+  userId    String   // 관심 등록한 사용자 ID
+  storyId   String   // 관심 등록한 사연 ID
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+
+  @@unique([userId, storyId])
+  @@index([userId])
+  @@index([storyId])
+}

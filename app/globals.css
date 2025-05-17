@@ -1,26 +1,113 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;         /* #FFFFFF */
+    --foreground: 0 0% 0%;          /* #000000 */
+    
+    --card: 0 0% 100%;              /* #FFFFFF */
+    --card-foreground: 0 0% 0%;     /* #000000 */
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;  /* #000000 */
+    
+    --primary: 48 100% 50%;         /* #FFD700 */
+    --primary-foreground: 0 0% 0%;  /* #000000 */
+    
+    --secondary: 0 0% 100%;         /* #FFFFFF */
+    --secondary-foreground: 0 0% 0%;/* #000000 */
+    
+    --muted: 0 0% 100%;             /* #FFFFFF */
+    --muted-foreground: 0 0% 0%;    /* #000000 */
+    
+    --accent: 48 100% 50%;          /* #FFD700 */
+    --accent-foreground: 0 0% 0%;   /* #000000 */
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 80%;             /* #CCCCCC */
+    --input: 0 0% 80%;
+    --ring: 48 100% 50%;            /* #FFD700 */
+    
+    --radius: 0.5rem;
+  }
+  
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* 사용자 정의 스타일 및 UI 개선 */
+@layer components {
+  .hover-card-effect {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+    background-color: transparent;
+  }
+  .hover-card-effect:hover {
+    background-color: hsl(166, 60%, 92%); /* #D3F3EC, 밝은 민트 */
+    box-shadow: 0 6px 24px 0 rgba(15, 82, 186, 0.10), 0 1.5px 6px 0 rgba(76, 175, 80, 0.08);
+  }
+  
+  .badge-animated {
+    @apply relative overflow-hidden after:absolute after:inset-0 after:bg-white/20 after:animate-pulse;
+  }
+  
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  
+  .prose-custom {
+    @apply prose prose-gray max-w-none prose-p:text-gray-600 prose-headings:text-gray-900 prose-strong:text-gray-900;
+  }
+  
+  .smooth-scroll {
+    @apply scroll-smooth;
+  }
+}
+
+/* 접근성 개선 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
