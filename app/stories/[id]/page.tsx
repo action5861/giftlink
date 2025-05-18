@@ -1,10 +1,12 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Heart, Share2, DollarSign } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, DollarSign, ExternalLink } from 'lucide-react';
 
 interface StoryItem {
   id: string;
@@ -82,6 +84,194 @@ interface StoryPageProps {
   };
 }
 
+function PaymentButton({ story, item }: { story: Story; item: StoryItem }) {
+  const handlePayment = () => {
+    const paymentWindow = window.open('', 'payment', 'width=500,height=700');
+    if (paymentWindow) {
+      paymentWindow.document.write(`
+        <html>
+          <head>
+            <title>기부 결제</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                padding: 24px;
+                background: #f9fafb;
+                color: #111827;
+              }
+              .container {
+                max-width: 500px;
+                margin: 0 auto;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 24px;
+              }
+              .header h1 {
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 8px;
+              }
+              .header p {
+                color: #6b7280;
+                font-size: 14px;
+              }
+              .payment-info {
+                background: white;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 24px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+              }
+              .payment-info h2 {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 16px;
+              }
+              .info-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 12px;
+                font-size: 14px;
+              }
+              .info-row:last-child {
+                margin-bottom: 0;
+                padding-top: 12px;
+                border-top: 1px solid #e5e7eb;
+                font-weight: 600;
+              }
+              .payment-methods {
+                background: white;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 24px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+              }
+              .payment-methods h2 {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 16px;
+              }
+              .method-list {
+                display: grid;
+                gap: 12px;
+              }
+              .method-item {
+                display: flex;
+                align-items: center;
+                padding: 16px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+              }
+              .method-item:hover {
+                border-color: #0F52BA;
+                background: #f8fafc;
+              }
+              .method-item.selected {
+                border-color: #0F52BA;
+                background: #f0f7ff;
+              }
+              .method-icon {
+                margin-right: 12px;
+                color: #4b5563;
+              }
+              .method-info {
+                flex: 1;
+              }
+              .method-name {
+                font-weight: 500;
+                margin-bottom: 4px;
+              }
+              .method-desc {
+                font-size: 12px;
+                color: #6b7280;
+              }
+              .payment-button {
+                width: 100%;
+                padding: 16px;
+                background: #0F52BA;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+              }
+              .payment-button:hover {
+                background: #0a3d8c;
+              }
+              .payment-button:disabled {
+                background: #9ca3af;
+                cursor: not-allowed;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>기부 결제</h1>
+                <p>${story.title}</p>
+              </div>
+
+              <div class="payment-info">
+                <h2>결제 정보</h2>
+                <div class="info-row">
+                  <span>상품명</span>
+                  <span>${item.name}</span>
+                </div>
+                <div class="info-row">
+                  <span>기부 금액</span>
+                  <span>${item.price.toLocaleString()}원</span>
+                </div>
+              </div>
+
+              <div class="payment-methods">
+                <h2>결제 수단</h2>
+                <div class="method-list">
+                  <div class="method-item selected">
+                    <div class="method-icon">💳</div>
+                    <div class="method-info">
+                      <div class="method-name">신용카드</div>
+                      <div class="method-desc">모든 카드사 이용 가능</div>
+                    </div>
+                  </div>
+                  <div class="method-item">
+                    <div class="method-icon">🏦</div>
+                    <div class="method-info">
+                      <div class="method-name">계좌이체</div>
+                      <div class="method-desc">실시간 계좌이체</div>
+                    </div>
+                  </div>
+                  <div class="method-item">
+                    <div class="method-icon">📝</div>
+                    <div class="method-info">
+                      <div class="method-name">가상계좌</div>
+                      <div class="method-desc">입금 후 자동 결제</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button class="payment-button">
+                ${item.price.toLocaleString()}원 결제하기
+              </button>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+  };
+
+  return (
+    <Button onClick={handlePayment}>
+      구매하여 기부하기
+    </Button>
+  );
+}
+
 export default function StoryPage({ params }: StoryPageProps) {
   const story = mockStories[params.id];
   
@@ -144,47 +334,29 @@ export default function StoryPage({ params }: StoryPageProps) {
           </div>
           
           {/* 필요한 물품 섹션 */}
-          <div>
-            <h2 className="text-2xl font-bold mb-4">필요한 물품</h2>
-            <div className="space-y-4">
-              {story.items.map((item: StoryItem) => (
-                <Card key={item.id} className="overflow-hidden">
-                  <div className="flex flex-col md:flex-row">
-                    {item.imageUrl && (
-                      <div className="relative w-full md:w-24 h-24 md:h-auto flex-shrink-0">
-                        <Image
-                          src={item.imageUrl}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">필요한 물품</h2>
+            <div className="grid gap-4">
+              {story.items.map((item) => (
+                <Card key={item.id}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        <p className="text-muted-foreground">{item.description}</p>
+                        <p className="font-semibold text-lg">{item.price.toLocaleString()}원</p>
                       </div>
-                    )}
-                    
-                    <CardContent className="flex-1 p-4 md:p-6">
-                      <h3 className="text-lg font-bold">{item.name}</h3>
-                      {item.description && (
-                        <p className="text-muted-foreground mt-1 mb-2">{item.description}</p>
-                      )}
-                      <p className="text-xl font-bold text-primary">{item.price.toLocaleString()}원</p>
-                    </CardContent>
-                    
-                    <CardFooter className="flex flex-col justify-center p-4 md:p-6 bg-muted/20 gap-2">
-                      <Button 
-                        asChild 
-                        className="w-full md:w-auto gap-1"
-                      >
-                        <a 
-                          href={item.coupangUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                        >
-                          <DollarSign className="h-4 w-4" />
-                          구매하여 기부하기
-                        </a>
-                      </Button>
-                    </CardFooter>
-                  </div>
+                      <div className="flex gap-2">
+                        <PaymentButton story={story} item={item} />
+                        <Button variant="outline" asChild>
+                          <Link href={item.coupangUrl} target="_blank">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            쿠팡 상품 보기
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
                 </Card>
               ))}
             </div>

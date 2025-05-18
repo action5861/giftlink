@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 export default function Home() {
   return (
@@ -27,9 +28,22 @@ export default function Home() {
           
           <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
             <Button asChild size="lg" className="flex-1">
-              <Link href="/stories">
+              <Link href="/stories" className="flex items-center justify-center gap-2">
                 지금 기부하기
-                <ArrowRightIcon className="ml-2 h-4 w-4" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="flex-1">
@@ -107,10 +121,41 @@ export default function Home() {
           {/* 파트너 로고 */}
           <div className="mt-16 text-center">
             <p className="text-lg font-medium text-gray-900 mb-8">신뢰할 수 있는 파트너</p>
-            <div className="flex flex-wrap justify-center gap-8">
-              <div className="text-2xl font-bold text-blue-600">굿네이버스</div>
-              <div className="text-2xl font-bold text-green-600">세이브더칠드런</div>
-              <div className="text-2xl font-bold text-red-600">유니세프</div>
+            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+              <div className="flex-1 flex justify-start items-center">
+                <Image
+                  src="/굿네이버스.png"
+                  alt="굿네이버스 로고"
+                  width={200}
+                  height={60}
+                  className="w-full h-auto max-h-[60px] object-contain"
+                  priority
+                />
+                <span className="sr-only">굿네이버스</span>
+              </div>
+              <div className="flex-1 flex justify-center items-center">
+                <Image
+                  src="/세이브더칠드런.png"
+                  alt="세이브더칠드런 로고"
+                  width={480}
+                  height={120}
+                  className="w-full h-auto max-h-[120px] object-contain"
+                  priority
+                />
+                <span className="sr-only">세이브더칠드런</span>
+              </div>
+              <div className="flex-1 flex justify-end items-center">
+                <Image
+                  src="/월드비젼.png"
+                  alt="월드비젼 로고"
+                  width={480}
+                  height={120}
+                  className="w-full h-auto max-h-[120px] object-contain"
+                  priority
+                />
+                <span className="sr-only">월드비젼</span>
+              </div>
+              {/* 유니세프 로고는 이미지 준비 후 추가 */}
             </div>
           </div>
         </div>

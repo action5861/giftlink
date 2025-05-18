@@ -152,8 +152,10 @@ export default function MessagesPage() {
   
   // 메시지 목록이 업데이트될 때마다 스크롤을 맨 아래로 이동
   useEffect(() => {
-    scrollToBottom();
-  }, [selectedConversation]);
+    if (selectedConversation) {
+      scrollToBottom();
+    }
+  }, [selectedConversation?.messages]);
   
   const loadMessages = () => {
     setLoading(true);

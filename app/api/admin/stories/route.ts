@@ -13,36 +13,69 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json();
-    const { title, content, category, recipientAge, recipientGender, recipientRegion } = data;
+    const { 
+      title, 
+      content, 
+      category, 
+      recipientName,
+      recipientPhone,
+      recipientAge, 
+      recipientGender, 
+      recipientRegion,
+      recipientAddress,
+      items 
+    } = data;
 
     // 필수 필드 검증
-    if (!title || !content || !category || !recipientAge || !recipientGender || !recipientRegion) {
+    if (!title || !content || !category || !recipientName || !recipientPhone || 
+        !recipientAge || !recipientGender || !recipientRegion || !recipientAddress) {
       return new NextResponse('Missing required fields', { status: 400 });
     }
 
-    // 사연 생성
-    const story = await prisma.story.create({
-      data: {
-        title,
-        content,
-        category,
-        recipientAge: parseInt(recipientAge),
-        recipientGender,
-        recipientRegion,
-        status: 'DRAFT',
-        partnerId: session.user.id,
-      },
-    });
+    // 사연 생성 (트랜잭션으로 처리)
+    const story = await prisma.$transaction(async (tx) => {
+      // 1. 사연 생성
+      const story = await tx.story.create({
+        data: {
+          title,
+          content,
+          category,
+          recipientName,
+          recipientPhone,
+          recipientAge: parseInt(recipientAge),
+          recipientGender,
+          recipientRegion,
+          recipientAddress,
+          status: 'DRAFT',
+          partnerId: session.user.id,
+        },
+      });
 
-    // 상태 변경 이력 기록
-    await prisma.storyStatusHistory.create({
-      data: {
-        storyId: story.id,
-        fromStatus: 'DRAFT',
-        toStatus: 'DRAFT',
-        note: '사연 등록',
-        changedById: session.user.id,
-      },
+      // 2. 상품 정보 생성
+      if (items && items.length > 0) {
+        await tx.item.createMany({
+          data: items.map((item: any) => ({
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            coupangUrl: item.coupangUrl,
+            storyId: story.id,
+          })),
+        });
+      }
+
+      // 3. 상태 변경 이력 기록
+      await tx.storyStatusHistory.create({
+        data: {
+          storyId: story.id,
+          fromStatus: 'DRAFT',
+          toStatus: 'DRAFT',
+          note: '사연 등록',
+          changedById: session.user.id,
+        },
+      });
+
+      return story;
     });
 
     return NextResponse.json(story);

@@ -43,6 +43,14 @@ const regions = [
   '제주특별자치도'
 ];
 
+interface StoryItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  coupangUrl: string;
+}
+
 export default function NewStoryPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -54,6 +62,7 @@ export default function NewStoryPage() {
     recipientAge: '',
     recipientGender: '',
     recipientRegion: '',
+    items: [] as StoryItem[]
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,6 +112,35 @@ export default function NewStoryPage() {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  const handleAddItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        id: Date.now().toString(),
+        name: '',
+        description: '',
+        price: 0,
+        coupangUrl: ''
+      }]
+    }));
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter(item => item.id !== itemId)
+    }));
+  };
+
+  const handleItemChange = (itemId: string, field: keyof StoryItem, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map(item => 
+        item.id === itemId ? { ...item, [field]: value } : item
+      )
     }));
   };
 
@@ -221,18 +259,180 @@ export default function NewStoryPage() {
                 </Select>
               </div>
             </div>
+
+            {/* 수혜자 정보 섹션 */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">수혜자 정보</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="recipientName">수혜자 성명 *</Label>
+                <Input
+                  id="recipientName"
+                  name="recipientName"
+                  value={formData.recipientName}
+                  onChange={handleChange}
+                  placeholder="수혜자 성명을 입력하세요"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recipientPhone">연락처 *</Label>
+                <Input
+                  id="recipientPhone"
+                  name="recipientPhone"
+                  value={formData.recipientPhone}
+                  onChange={handleChange}
+                  placeholder="010-0000-0000"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recipientRegion">거주지역 *</Label>
+                <Select
+                  value={formData.recipientRegion}
+                  onValueChange={(value) => handleSelectChange('recipientRegion', value)}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="거주지역 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regions.map((region) => (
+                      <SelectItem key={region} value={region}>
+                        {region}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recipientAddress">상세주소 *</Label>
+                <Input
+                  id="recipientAddress"
+                  name="recipientAddress"
+                  value={formData.recipientAddress}
+                  onChange={handleChange}
+                  placeholder="상세주소를 입력하세요"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recipientAge">연령 *</Label>
+                <Input
+                  id="recipientAge"
+                  name="recipientAge"
+                  type="number"
+                  value={formData.recipientAge}
+                  onChange={handleChange}
+                  placeholder="연령 입력"
+                  min="0"
+                  max="120"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recipientGender">성별 *</Label>
+                <Select
+                  value={formData.recipientGender}
+                  onValueChange={(value) => handleSelectChange('recipientGender', value)}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="성별 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="남성">남성</SelectItem>
+                    <SelectItem value="여성">여성</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <div className="flex justify-end space-x-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={loading}
-          >
-            취소
-          </Button>
+        {/* 상품 정보 섹션 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>필요한 물품</CardTitle>
+            <Button type="button" onClick={handleAddItem}>
+              물품 추가
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {formData.items.map((item) => (
+              <div key={item.id} className="p-4 border rounded-lg space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-medium">물품 정보</h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveItem(item.id)}
+                  >
+                    삭제
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>물품명</Label>
+                    <Input
+                      value={item.name}
+                      onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
+                      placeholder="물품명을 입력하세요"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>가격</Label>
+                    <Input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) => handleItemChange(item.id, 'price', parseInt(e.target.value))}
+                      placeholder="가격을 입력하세요"
+                      min="0"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>설명</Label>
+                  <Textarea
+                    value={item.description}
+                    onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                    placeholder="물품에 대한 설명을 입력하세요"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>쿠팡 상품 링크</Label>
+                  <Input
+                    value={item.coupangUrl}
+                    onChange={(e) => handleItemChange(item.id, 'coupangUrl', e.target.value)}
+                    placeholder="https://www.coupang.com/..."
+                    required
+                  />
+                </div>
+              </div>
+            ))}
+
+            {formData.items.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                필요한 물품을 추가해주세요
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end">
           <Button type="submit" disabled={loading}>
             {loading ? (
               <>
@@ -240,7 +440,7 @@ export default function NewStoryPage() {
                 등록 중...
               </>
             ) : (
-              '등록하기'
+              '사연 등록'
             )}
           </Button>
         </div>

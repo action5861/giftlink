@@ -91,9 +91,12 @@ model Story {
   imagePrompt     String?             @db.Text // 이미지 생성에 사용된 프롬프트
   status          StoryStatus         @default(DRAFT) // 사연 상태
   category        String              @db.VarChar(50) // 카테고리
+  recipientName   String              @db.VarChar(100) // 수혜자 성명
+  recipientPhone  String              @db.VarChar(20) // 수혜자 연락처
   recipientAge    Int                 // 수혜자 나이
   recipientGender String              @db.VarChar(20) // 수혜자 성별
-  recipientRegion String              @db.VarChar(50) // 수혜자 거주지
+  recipientRegion String              @db.VarChar(50) // 수혜자 거주지역
+  recipientAddress String             @db.VarChar(255) // 수혜자 상세주소
   adminNotes      String?             @db.Text // 관리자 메모
   adminReviewed   Boolean             @default(false) // 관리자 검토 여부
   publishedAt     DateTime?           // 게시일
