@@ -84,120 +84,133 @@ model InviteToken {
 }
 
 model Story {
-  id              String              @id @default(cuid())
-  title           String              @db.VarChar(200) // 사연 제목
-  content         String              @db.Text // 사연 내용
-  imageUrl        String?             @db.VarChar(255) // 수혜자 이미지 URL
-  imagePrompt     String?             @db.Text // 이미지 생성에 사용된 프롬프트
-  status          StoryStatus         @default(DRAFT) // 사연 상태
-  category        String              @db.VarChar(50) // 카테고리
-  recipientName   String              @db.VarChar(100) // 수혜자 성명
-  recipientPhone  String              @db.VarChar(20) // 수혜자 연락처
-  recipientAge    Int                 // 수혜자 나이
-  recipientGender String              @db.VarChar(20) // 수혜자 성별
-  recipientRegion String              @db.VarChar(50) // 수혜자 거주지역
-  recipientAddress String             @db.VarChar(255) // 수혜자 상세주소
-  adminNotes      String?             @db.Text // 관리자 메모
-  adminReviewed   Boolean             @default(false) // 관리자 검토 여부
-  publishedAt     DateTime?           // 게시일
-  items           Item[]              // 필요한 물품 목록
-  donations       Donation[]          // 기부 내역
-  partnerId       String              // 파트너(작성자) ID
-  partner         User                @relation(fields: [partnerId], references: [id])
-  statusHistory   StoryStatusHistory[]  // 상태 변경 이력
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  deletedAt       DateTime?
-  isDeleted       Boolean             @default(false)
-  messages        Message[]
-  favoritedBy     FavoriteStory[]     // 관심 등록한 사용자 목록
-
-  @@index([status])
-  @@index([category])
-  @@index([partnerId])
-}
-
-enum StoryStatus {
-  DRAFT      // 파트너 작성 중
-  PENDING    // 관리자 검토 대기 중
-  REVISION   // 수정 요청됨
-  APPROVED   // 승인됨 (이미지 생성 전)
-  PUBLISHED  // 게시됨 (사이트에 공개)
-  FULFILLED  // 기부 완료됨
-  REJECTED   // 거부됨
-}
-
-model StoryStatusHistory {
-  id          String      @id @default(cuid())
-  storyId     String
-  story       Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  fromStatus  StoryStatus
-  toStatus    StoryStatus
-  note        String?     @db.Text // 상태 변경 이유
-  changedById String
-  changedBy   User        @relation(fields: [changedById], references: [id])
-  createdAt   DateTime    @default(now())
-
-  @@index([storyId])
-  @@index([changedById])
-  @@index([createdAt])
-}
-
-model Item {
-  id          String      @id @default(cuid())
-  name        String      @db.VarChar(200) // 물품명
-  description String?     @db.Text // 설명
-  price       Float       // 가격
-  coupangUrl  String      @db.VarChar(255) // 쿠팡 상품 URL
-  partnerUrl  String?     @db.VarChar(255) // 쿠팡 파트너스 URL (수익 추적용)
-  imageUrl    String?     @db.VarChar(255) // 물품 이미지
-  priority    Int         @default(1) // 우선순위
-  storyId     String
-  story       Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  donations   Donation[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
-  isDeleted   Boolean     @default(false)
-
-  @@index([storyId])
-  @@index([priority])
-  @@index([isDeleted])
-}
-
-enum DonationStatus {
-  PENDING
-  PROCESSING
-  SHIPPED
-  COMPLETED
-  FAILED
-  CANCELLED
+  id                String     @id @default(cuid())
+  title             String
+  content           String
+  category          String
+  recipientName     String
+  recipientPhone    String
+  recipientAge      Int
+  recipientGender   String
+  recipientRegion   String
+  recipientAddress  String
+  status            String
+  partnerId         String
+  partner           User       @relation(fields: [partnerId], references: [id])
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  donations         Donation[]
+  items             Item[]
+  statusHistory     StoryStatusHistory[]
+  messages          Message[]
+  favoritedBy       FavoriteStory[]
 }
 
 model Donation {
-  id              String          @id @default(cuid())
-  amount          Int
-  status          DonationStatus  @default(PENDING)
-  trackingNumber  String?         @db.VarChar(100)
-  message         String?         @db.Text
-  thankyouMessage String?         @db.Text
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  deletedAt       DateTime?
-  isDeleted       Boolean         @default(false)
-  donorId         String
-  donor           User            @relation(fields: [donorId], references: [id])
-  storyId         String
-  story           Story           @relation(fields: [storyId], references: [id])
-  itemId          String?
-  item            Item?           @relation(fields: [itemId], references: [id])
+  id                String     @id @default(cuid())
+  storyId           String
+  ngoId             String
+  donorId           String
+  amount            Float
+  message           String?
+  status            String
+  paymentReference  String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  story             Story      @relation(fields: [storyId], references: [id])
+  ngo               NGO        @relation(fields: [ngoId], references: [id])
+  donor             User       @relation(fields: [donorId], references: [id])
+  order             Order?
+  settlements       Settlement[]
+}
 
-  @@index([status])
-  @@index([donorId])
-  @@index([storyId])
-  @@index([itemId])
-  @@index([createdAt])
-  @@index([isDeleted])
+model Order {
+  id                String     @id @default(cuid())
+  donationId        String     @unique
+  coupangOrderId    String?
+  trackingNumber    String?
+  totalAmount       Float
+  status            String
+  errorMessage      String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  donation          Donation   @relation(fields: [donationId], references: [id])
+  products          OrderProduct[]
+  payment           CoupangPayment?
+}
+
+model OrderProduct {
+  id                String     @id @default(cuid())
+  orderId           String
+  productId         String
+  productName       String
+  quantity          Int
+  unitPrice         Float
+  totalPrice        Float
+  order             Order      @relation(fields: [orderId], references: [id])
+}
+
+model Settlement {
+  id                String     @id @default(cuid())
+  ngoId             String
+  totalAmount       Float
+  status            String
+  scheduledDate     DateTime
+  completedDate     DateTime?
+  paymentReference  String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  ngo               NGO        @relation(fields: [ngoId], references: [id])
+  donations         Donation[]
+}
+
+model CoupangPayment {
+  id                String     @id @default(cuid())
+  orderId           String     @unique
+  amount            Float
+  status            String
+  scheduledDate     DateTime
+  completedDate     DateTime?
+  paymentReference  String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  order             Order      @relation(fields: [orderId], references: [id])
+}
+
+model NGO {
+  id                String     @id @default(cuid())
+  name              String
+  settlementPeriod  String
+  settlementDay     Int
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  donations         Donation[]
+  settlements       Settlement[]
+}
+
+model Item {
+  id                String     @id @default(cuid())
+  name              String
+  description       String?
+  price             Float
+  coupangUrl        String?
+  storyId           String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  story             Story      @relation(fields: [storyId], references: [id])
+}
+
+model StoryStatusHistory {
+  id                String     @id @default(cuid())
+  storyId           String
+  fromStatus        String
+  toStatus          String
+  note              String?
+  changedById       String
+  createdAt         DateTime   @default(now())
+  story             Story      @relation(fields: [storyId], references: [id])
+  changedBy         User       @relation(fields: [changedById], references: [id])
 }
 
 model AdminAction {

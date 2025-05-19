@@ -12,7 +12,9 @@ import {
   Gift, 
   MessageSquare, 
   Settings,
-  LogOut
+  LogOut,
+  Banknote,
+  ShoppingCart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -51,6 +53,16 @@ const navItems = [
     title: '설정',
     href: '/admin/settings',
     icon: Settings,
+  },
+  {
+    title: '정산관리',
+    href: '/admin/settlements',
+    icon: Banknote,
+  },
+  {
+    title: '주문관리',
+    href: '/admin/orders',
+    icon: ShoppingCart,
   },
 ];
 
