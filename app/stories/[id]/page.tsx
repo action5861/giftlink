@@ -1,20 +1,23 @@
 'use client';
 
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, usePathname, useRouter } from 'next/navigation';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Heart, Share2, DollarSign, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, DollarSign, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from "@/components/ui/use-toast"
 
 interface StoryItem {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
-  coupangUrl: string;
-  imageUrl: string;
+  coupangUrl: string | null;
+  imageUrl?: string;
 }
 
 interface Story {
@@ -23,60 +26,15 @@ interface Story {
   content: string;
   imageUrl: string;
   category: string;
-  age: number;
-  gender: string;
+  recipientAge: number;
+  recipientGender: string;
+  recipientRegion: string;
   items: StoryItem[];
+  partner?: {
+    id: string;
+    name: string | null;
+  };
 }
-
-// 임시 데이터 (나중에 DB 연동으로 대체)
-const mockStories: Record<string, Story> = {
-  '1': {
-    id: '1',
-    title: '겨울을 따뜻하게 보내고 싶어요',
-    content: '추운 겨울이 다가오는데 난방비가 너무 부담됩니다. 오래된 이불로는 추위를 막기 어려워 밤에 잠을 이루기가 힘듭니다. 따뜻한 이불과 전기장판이 있으면 이번 겨울을 덜 춥게 보낼 수 있을 것 같습니다. 도움 주시면 정말 감사하겠습니다.',
-    imageUrl: 'https://picsum.photos/seed/winter1/800/600',
-    category: '생활용품',
-    age: 67,
-    gender: '여성',
-    items: [
-      {
-        id: '101',
-        name: '따뜻한 겨울 이불',
-        description: '거위털 충전재로 보온성이 뛰어난 겨울용 이불입니다.',
-        price: 39000,
-        coupangUrl: 'https://www.coupang.com/sample-blanket',
-        imageUrl: 'https://picsum.photos/seed/blanket/150/150'
-      },
-      {
-        id: '102',
-        name: '전기장판',
-        description: '에너지 효율이 높은 전기장판으로 취침 시 따뜻함을 유지해 줍니다.',
-        price: 28000,
-        coupangUrl: 'https://www.coupang.com/sample-heater',
-        imageUrl: 'https://picsum.photos/seed/heater/150/150'
-      }
-    ]
-  },
-  '2': {
-    id: '2',
-    title: '아이의 교육을 위해 도움이 필요해요',
-    content: '초등학생 아이의 학습 도구가 필요합니다. 특히 수학 학습에 도움이 될 교구가 있으면 좋겠어요. 현재 경제적 어려움으로 인해 아이의 교육에 필요한 기본적인 도구들도 구매하기 어려운 상황입니다.',
-    imageUrl: 'https://picsum.photos/seed/education1/800/600',
-    category: '교육',
-    age: 35,
-    gender: '여성',
-    items: [
-      {
-        id: '201',
-        name: '초등 수학 교구 세트',
-        description: '기초 수학 개념을 쉽게 이해할 수 있는 교구 세트입니다.',
-        price: 45000,
-        coupangUrl: 'https://www.coupang.com/sample-math',
-        imageUrl: 'https://picsum.photos/seed/math/150/150'
-      }
-    ]
-  }
-};
 
 interface StoryPageProps {
   params: {
@@ -84,204 +42,127 @@ interface StoryPageProps {
   };
 }
 
-function PaymentButton({ story, item }: { story: Story; item: StoryItem }) {
-  const handlePayment = () => {
+function PaymentButton({ storyId, itemId, itemName, itemPrice }: { storyId: string; itemId: string; itemName: string; itemPrice: number; }) {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handlePaymentClick = () => {
+    // TODO: 실제 결제 시스템 연동
     const paymentWindow = window.open('', 'payment', 'width=500,height=700');
     if (paymentWindow) {
       paymentWindow.document.write(`
         <html>
-          <head>
-            <title>기부 결제</title>
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                padding: 24px;
-                background: #f9fafb;
-                color: #111827;
-              }
-              .container {
-                max-width: 500px;
-                margin: 0 auto;
-              }
-              .header {
-                text-align: center;
-                margin-bottom: 24px;
-              }
-              .header h1 {
-                font-size: 24px;
-                font-weight: 600;
-                margin-bottom: 8px;
-              }
-              .header p {
-                color: #6b7280;
-                font-size: 14px;
-              }
-              .payment-info {
-                background: white;
-                border-radius: 12px;
-                padding: 20px;
-                margin-bottom: 24px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              }
-              .payment-info h2 {
-                font-size: 16px;
-                font-weight: 600;
-                margin-bottom: 16px;
-              }
-              .info-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 12px;
-                font-size: 14px;
-              }
-              .info-row:last-child {
-                margin-bottom: 0;
-                padding-top: 12px;
-                border-top: 1px solid #e5e7eb;
-                font-weight: 600;
-              }
-              .payment-methods {
-                background: white;
-                border-radius: 12px;
-                padding: 20px;
-                margin-bottom: 24px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              }
-              .payment-methods h2 {
-                font-size: 16px;
-                font-weight: 600;
-                margin-bottom: 16px;
-              }
-              .method-list {
-                display: grid;
-                gap: 12px;
-              }
-              .method-item {
-                display: flex;
-                align-items: center;
-                padding: 16px;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                cursor: pointer;
-                transition: all 0.2s;
-              }
-              .method-item:hover {
-                border-color: #0F52BA;
-                background: #f8fafc;
-              }
-              .method-item.selected {
-                border-color: #0F52BA;
-                background: #f0f7ff;
-              }
-              .method-icon {
-                margin-right: 12px;
-                color: #4b5563;
-              }
-              .method-info {
-                flex: 1;
-              }
-              .method-name {
-                font-weight: 500;
-                margin-bottom: 4px;
-              }
-              .method-desc {
-                font-size: 12px;
-                color: #6b7280;
-              }
-              .payment-button {
-                width: 100%;
-                padding: 16px;
-                background: #0F52BA;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: background 0.2s;
-              }
-              .payment-button:hover {
-                background: #0a3d8c;
-              }
-              .payment-button:disabled {
-                background: #9ca3af;
-                cursor: not-allowed;
-              }
-            </style>
-          </head>
+          <head><title>기부 결제</title><style>/* 스타일 생략 */</style></head>
           <body>
             <div class="container">
-              <div class="header">
-                <h1>기부 결제</h1>
-                <p>${story.title}</p>
-              </div>
-
-              <div class="payment-info">
-                <h2>결제 정보</h2>
-                <div class="info-row">
-                  <span>상품명</span>
-                  <span>${item.name}</span>
-                </div>
-                <div class="info-row">
-                  <span>기부 금액</span>
-                  <span>${item.price.toLocaleString()}원</span>
-                </div>
-              </div>
-
-              <div class="payment-methods">
-                <h2>결제 수단</h2>
-                <div class="method-list">
-                  <div class="method-item selected">
-                    <div class="method-icon">💳</div>
-                    <div class="method-info">
-                      <div class="method-name">신용카드</div>
-                      <div class="method-desc">모든 카드사 이용 가능</div>
-                    </div>
-                  </div>
-                  <div class="method-item">
-                    <div class="method-icon">🏦</div>
-                    <div class="method-info">
-                      <div class="method-name">계좌이체</div>
-                      <div class="method-desc">실시간 계좌이체</div>
-                    </div>
-                  </div>
-                  <div class="method-item">
-                    <div class="method-icon">📝</div>
-                    <div class="method-info">
-                      <div class="method-name">가상계좌</div>
-                      <div class="method-desc">입금 후 자동 결제</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button class="payment-button">
-                ${item.price.toLocaleString()}원 결제하기
-              </button>
+              <h1>기부 결제</h1>
+              <p>사연: ${storyId}</p>
+              <p>물품: ${itemName} (${itemPrice.toLocaleString()}원)</p>
+              <button onclick="alert('결제가 시작됩니다.'); window.close();">결제하기</button>
             </div>
           </body>
         </html>
       `);
+      toast({
+        title: "결제 준비 중",
+        description: `${itemName}에 대한 결제창이 열립니다.`,
+      });
+    } else {
+      toast({
+        title: "결제창 열기 실패",
+        description: "팝업 차단 기능을 확인해주세요.",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <Button onClick={handlePayment}>
+    <Button onClick={handlePaymentClick}>
+      <DollarSign className="mr-2 h-4 w-4" />
       구매하여 기부하기
     </Button>
   );
 }
 
-export default function StoryPage({ params }: StoryPageProps) {
-  const story = mockStories[params.id];
-  
+function StoryPageContent({ params }: StoryPageProps) {
+  const [story, setStory] = useState<Story | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (params.id) {
+      setLoading(true);
+      setError(null);
+      fetch(`/api/stories/${params.id}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            if (res.status === 404) {
+              throw new Error('사연을 찾을 수 없습니다.');
+            }
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.message || `Error: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((data: Story) => {
+          setStory(data);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch story details:', err);
+          setError(err.message);
+          setStory(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="container py-10">
+        <Skeleton className="h-8 w-40 mb-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <Skeleton className="h-[400px] w-full rounded-xl mb-8" />
+            <Skeleton className="h-6 w-1/4 mb-4" />
+            <Skeleton className="h-10 w-3/4 mb-6" />
+            <Skeleton className="h-8 w-40 mb-6" />
+            <Skeleton className="h-20 w-full mb-8" />
+            <Skeleton className="h-8 w-1/3 mb-4" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+          <div className="lg:col-span-1">
+            <Skeleton className="h-64 w-full sticky top-24" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-10 text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold text-destructive mb-2">오류 발생</h2>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <Button asChild variant="outline">
+          <Link href="/stories">사연 목록으로 돌아가기</Link>
+        </Button>
+      </div>
+    );
+  }
+
   if (!story) {
-    notFound();
+    return null;
   }
   
+  const totalAmount = story.items.reduce((sum, item) => sum + item.price, 0);
+
   return (
     <div className="container py-10">
-      {/* 네비게이션 */}
       <div className="mb-6">
         <Button asChild variant="ghost" className="pl-0">
           <Link href="/stories">
@@ -292,27 +173,31 @@ export default function StoryPage({ params }: StoryPageProps) {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 메인 콘텐츠 */}
         <div className="lg:col-span-2">
-          {/* 이미지 및 헤더 */}
-          <div className="relative rounded-xl overflow-hidden h-[400px] mb-8">
+          <div className="relative rounded-xl overflow-hidden h-[300px] md:h-[400px] mb-8">
             <Image
-              src={story.imageUrl}
+              src={story.imageUrl || '/images/placeholder.jpg'}
               alt={story.title}
               fill
               className="object-cover"
               priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 67vw, 800px"
             />
           </div>
           
           <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <Badge variant="secondary" className="font-medium">
                 {story.category}
               </Badge>
               <span className="text-sm text-muted-foreground">
-                {story.age}세 · {story.gender}
+                {story.recipientAge}세 · {story.recipientGender} · {story.recipientRegion}
               </span>
+              {story.partner && (
+                <span className="text-sm text-muted-foreground">
+                  | 파트너: {story.partner.name}
+                </span>
+              )}
             </div>
             
             <h1 className="text-3xl font-bold mb-6">{story.title}</h1>
@@ -322,48 +207,64 @@ export default function StoryPage({ params }: StoryPageProps) {
                 <Heart className="h-4 w-4" />
                 관심 등록
               </Button>
-              <Button variant="outline" size="sm" className="gap-1">
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast({ title: "링크 복사 완료", description: "사연 링크가 클립보드에 복사되었습니다." });
+              }}>
                 <Share2 className="h-4 w-4" />
                 공유하기
               </Button>
             </div>
             
-            <div className="prose max-w-none">
+            <div className="prose dark:prose-invert max-w-none">
               <p className="whitespace-pre-line">{story.content}</p>
             </div>
           </div>
           
-          {/* 필요한 물품 섹션 */}
           <div className="space-y-4">
             <h2 className="text-2xl font-bold">필요한 물품</h2>
-            <div className="grid gap-4">
-              {story.items.map((item) => (
-                <Card key={item.id}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <h3 className="font-semibold">{item.name}</h3>
-                        <p className="text-muted-foreground">{item.description}</p>
-                        <p className="font-semibold text-lg">{item.price.toLocaleString()}원</p>
+            {story.items.length > 0 ? (
+              <div className="grid gap-4">
+                {story.items.map((item) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4 md:p-6">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="flex items-start gap-4 flex-1">
+                          {item.imageUrl && (
+                             <div className="relative h-20 w-20 md:h-24 md:w-24 rounded-md overflow-hidden flex-shrink-0">
+                              <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <h3 className="font-semibold text-base md:text-lg">{item.name}</h3>
+                            {item.description && (
+                              <p className="text-muted-foreground text-sm">{item.description}</p>
+                            )}
+                            <p className="font-semibold text-md md:text-lg">{item.price.toLocaleString()}원</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0">
+                          <PaymentButton storyId={story.id} itemId={item.id} itemName={item.name} itemPrice={item.price} />
+                          {item.coupangUrl && (
+                            <Button variant="outline" asChild className="w-full sm:w-auto">
+                              <a href={item.coupangUrl} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                쿠팡 상품 보기
+                              </a>
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <PaymentButton story={story} item={item} />
-                        <Button variant="outline" asChild>
-                          <Link href={item.coupangUrl} target="_blank">
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            쿠팡 상품 보기
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">이 사연에 등록된 필요 물품이 없습니다.</p>
+            )}
           </div>
         </div>
         
-        {/* 사이드바 */}
         <div className="lg:col-span-1">
           <div className="sticky top-24">
             <Card>
@@ -378,19 +279,104 @@ export default function StoryPage({ params }: StoryPageProps) {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">총 금액</span>
                     <span className="font-bold text-lg">
-                      {story.items.reduce((sum: number, item: StoryItem) => sum + item.price, 0).toLocaleString()}원
+                      {totalAmount.toLocaleString()}원
                     </span>
                   </div>
                 </div>
                 
-                <Button className="w-full gap-2 mb-4">
-                  <DollarSign className="h-4 w-4" />
-                  모든 물품 기부하기
-                </Button>
+                {story.items.length > 0 && (
+                  <Button className="w-full gap-2 mb-4">
+                    <DollarSign className="h-4 w-4" />
+                    모든 물품 한번에 기부하기 (구현 예정)
+                  </Button>
+                )}
                 
                 <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
                   <p>기부하시면 쿠팡을 통해 직접 물품이 수혜자에게 전달됩니다.</p>
+                  <p className="mt-1">모든 기부 과정은 투명하게 관리됩니다.</p>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function StoryPageWrapper({ params }: StoryPageProps) {
+  return (
+    <Suspense fallback={<StoryDetailLoadingSkeleton />}>
+      <StoryPageContent params={params} />
+    </Suspense>
+  );
+}
+
+function StoryDetailLoadingSkeleton() {
+  return (
+    <div className="container py-10">
+      <Skeleton className="h-8 w-40 mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Skeleton className="h-[400px] w-full rounded-xl mb-8" />
+          <div className="flex items-center gap-2 mb-4">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-10 w-3/4 mb-6" />
+          <div className="flex gap-4 mb-6">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-4 w-5/6 mb-8" />
+          
+          <Skeleton className="h-8 w-1/3 mb-6" />
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex gap-4">
+                  <Skeleton className="h-24 w-24 rounded-md" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-5 w-1/2" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-10 w-36" />
+                    <Skeleton className="h-10 w-36" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex gap-4">
+                  <Skeleton className="h-24 w-24 rounded-md" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-5 w-1/2" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-10 w-36" />
+                    <Skeleton className="h-10 w-36" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <div className="lg:col-span-1">
+          <div className="sticky top-24">
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <Skeleton className="h-8 w-1/2 mb-4" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-10 w-full mb-4" />
+                <Skeleton className="h-16 w-full" />
               </CardContent>
             </Card>
           </div>

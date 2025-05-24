@@ -10,6 +10,9 @@ export const StorySchema = z.object({
   recipientAge: z.number(),
   recipientGender: z.string(),
   recipientRegion: z.string(),
+  recipientName: z.string(),
+  recipientPhone: z.string(),
+  recipientAddress: z.string(),
   partner: z.object({
     id: z.string(),
     name: z.string(),
@@ -52,172 +55,167 @@ export type Story = z.infer<typeof StorySchema>;
 export type StoryStats = z.infer<typeof StoryStatsSchema>;
 
 // API 엔드포인트
-const STORY_API = {
-  LIST: '/api/admin/stories',
-  DETAIL: (id: string) => `/api/admin/stories/${id}`,
-  CREATE: '/api/admin/stories',
-  UPDATE: (id: string) => `/api/admin/stories/${id}`,
-  APPROVE: (id: string) => `/api/admin/stories/${id}/approve`,
-  REJECT: (id: string) => `/api/admin/stories/${id}/reject`,
-  REQUEST_REVISION: (id: string) => `/api/admin/stories/${id}/request-revision`,
-  GENERATE_IMAGE: (id: string) => `/api/admin/stories/${id}/generate-image`,
-  STATS: '/api/admin/stories/stats',
-};
+const LIST = '/api/admin/stories';
+const DETAIL = (id: string) => `/api/admin/stories/${id}`;
+const APPROVE = (id: string) => `/api/admin/stories/${id}/approve`;
+const REJECT = (id: string) => `/api/admin/stories/${id}/reject`;
+const REVISION = (id: string) => `/api/admin/stories/${id}/revision`;
+const GENERATE_IMAGE = (id: string) => `/api/admin/stories/${id}/image`;
+const STATS = '/api/admin/stories/stats';
 
-// API 호출 함수
+// API 클라이언트
 export const storyApi = {
-  // 사연 목록 조회 (목업 데이터)
-  getStories: async (params?: { 
+  // 사연 목록 조회
+  getStories: async (params?: {
     search?: string;
     status?: string;
     category?: string;
-  }): Promise<Story[]> => {
-    // 임시 목업 데이터
-    const mockStories: Story[] = [
-      {
-        id: '1',
-        title: '겨울을 따뜻하게 보내고 싶어요',
-        content: '추운 겨울이 다가오는데 난방비가 너무 부담됩니다...',
-        status: 'PENDING',
-        category: '생활용품',
-        recipientAge: 67,
-        recipientGender: '여성',
-        recipientRegion: '서울',
-        partner: {
-          id: 'p1',
-          name: '굿네이버스',
-        },
-        imageUrl: 'https://picsum.photos/seed/winter1/800/600',
-        createdAt: new Date('2023-12-15T09:32:00').toISOString(),
-        items: [
-          {
-            id: '101',
-            name: '따뜻한 겨울 이불',
-            description: '거위털 충전재로 보온성이 뛰어난 겨울용 이불입니다.',
-            price: 39000,
-            coupangUrl: 'https://www.coupang.com/sample-blanket',
-          },
-        ],
-        statusHistory: [
-          {
-            id: 'sh1',
-            fromStatus: 'DRAFT',
-            toStatus: 'PENDING',
-            note: '검토 요청합니다.',
-            changedBy: '김파트너',
-            createdAt: new Date('2023-12-15T09:32:00').toISOString(),
-          }
-        ],
-        donations: [],
+    page?: number;
+    limit?: number;
+  }): Promise<{ stories: Story[]; totalPages: number; currentPage: number }> => {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await fetch(`${LIST}?${queryParams.toString()}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch stories');
+    }
+    return response.json();
+  },
+
+  // 사연 상세 조회
+  getStory: async (id: string): Promise<Story> => {
+    const response = await fetch(DETAIL(id));
+    if (!response.ok) {
+      throw new Error('Failed to fetch story');
+    }
+    return response.json();
+  },
+
+  // 사연 승인
+  approveStory: async (id: string, note?: string): Promise<Story> => {
+    const response = await fetch(APPROVE(id), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      // ... 더 많은 목업 데이터
-    ];
-
-    // 필터링
-    let filteredStories = [...mockStories];
-    
-    if (params?.search) {
-      const search = params.search.toLowerCase();
-      filteredStories = filteredStories.filter(
-        story => 
-          story.title.toLowerCase().includes(search) ||
-          story.partner.name.toLowerCase().includes(search)
-      );
+      body: JSON.stringify({ note }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to approve story');
     }
-    
-    if (params?.status) {
-      filteredStories = filteredStories.filter(
-        story => story.status === params.status
-      );
-    }
-    
-    if (params?.category && params.category !== '전체') {
-      filteredStories = filteredStories.filter(
-        story => story.category === params.category
-      );
-    }
-
-    return filteredStories;
+    return response.json();
   },
 
-  // 사연 상세 조회 (목업 데이터)
-  getStoryDetail: async (id: string): Promise<Story> => {
-    // 임시 목업 데이터
-    const mockStory: Story = {
-      id: '1',
-      title: '겨울을 따뜻하게 보내고 싶어요',
-      content: '추운 겨울이 다가오는데 난방비가 너무 부담됩니다...',
-      status: 'PENDING',
-      category: '생활용품',
-      recipientAge: 67,
-      recipientGender: '여성',
-      recipientRegion: '서울',
-      partner: {
-        id: 'p1',
-        name: '굿네이버스',
+  // 사연 거절
+  rejectStory: async (id: string, note: string): Promise<Story> => {
+    const response = await fetch(REJECT(id), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      imageUrl: 'https://picsum.photos/seed/winter1/800/600',
-      createdAt: new Date('2023-12-15T09:32:00').toISOString(),
-      items: [
-        {
-          id: '101',
-          name: '따뜻한 겨울 이불',
-          description: '거위털 충전재로 보온성이 뛰어난 겨울용 이불입니다.',
-          price: 39000,
-          coupangUrl: 'https://www.coupang.com/sample-blanket',
-        },
-      ],
-      statusHistory: [
-        {
-          id: 'sh1',
-          fromStatus: 'DRAFT',
-          toStatus: 'PENDING',
-          note: '검토 요청합니다.',
-          changedBy: '김파트너',
-          createdAt: new Date('2023-12-15T09:32:00').toISOString(),
-        }
-      ],
-      donations: [],
-    };
-
-    return mockStory;
+      body: JSON.stringify({ note }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to reject story');
+    }
+    return response.json();
   },
 
-  // 사연 통계 조회 (목업 데이터)
-  getStoryStats: async (): Promise<StoryStats> => {
-    // 임시 목업 데이터
-    const mockStats: StoryStats = {
-      total: 7,
-      pending: 2,
-      revision: 1,
-      approved: 1,
-      published: 3,
-    };
-
-    return mockStats;
+  // 사연 수정 요청
+  requestRevision: async (id: string, note: string): Promise<Story> => {
+    const response = await fetch(REVISION(id), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ note }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to request revision');
+    }
+    return response.json();
   },
 
-  // 사연 승인 (목업 데이터)
-  approveStory: async (id: string, note: string): Promise<void> => {
-    console.log('사연 승인 요청:', { id, note });
-    return Promise.resolve();
+  // 이미지 생성
+  generateImage: async (id: string, prompt: string): Promise<Story> => {
+    const response = await fetch(GENERATE_IMAGE(id), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prompt }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to generate image');
+    }
+    return response.json();
   },
 
-  // 사연 거부 (목업 데이터)
-  rejectStory: async (id: string, note: string): Promise<void> => {
-    console.log('사연 거부 요청:', { id, note });
-    return Promise.resolve();
+  // 통계 조회
+  getStats: async (): Promise<StoryStats> => {
+    const response = await fetch(STATS);
+    if (!response.ok) {
+      throw new Error('Failed to fetch stats');
+    }
+    return response.json();
   },
 
-  // 사연 수정 요청 (목업 데이터)
-  requestRevision: async (id: string, note: string): Promise<void> => {
-    console.log('사연 수정 요청:', { id, note });
-    return Promise.resolve();
+  // 사연 생성
+  createStory: async (data: {
+    title: string;
+    content: string;
+    recipientAge: string;
+    recipientGender: string;
+    recipientRegion: string;
+    items: {
+      name: string;
+      description: string;
+      price: string;
+      coupangUrl: string;
+      category: string;
+    }[];
+  }): Promise<Story> => {
+    const response = await fetch(LIST, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...data,
+        recipientAge: parseInt(data.recipientAge),
+        items: data.items.map(item => ({
+          ...item,
+          price: parseFloat(item.price),
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create story');
+    }
+
+    return response.json();
   },
 
-  // 이미지 생성 (목업 데이터)
-  generateImage: async (id: string, prompt: string): Promise<void> => {
-    console.log('이미지 생성 요청:', { id, prompt });
-    return Promise.resolve();
+  updateStoryStatus: async (storyId: string, status: string, note?: string) => {
+    const response = await fetch(`/api/admin/stories/${storyId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status, note }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update story status');
+    }
+
+    return response.json();
   },
 }; 

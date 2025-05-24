@@ -1,86 +1,240 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { Prisma } from '@prisma/client';
+
+// Type definitions for better type safety
+interface StoryQueryParams {
+  status?: string;
+  search?: string;
+  page?: string;
+  limit?: string;
+}
+
+interface StoryResponse {
+  stories: any[];
+  totalPages: number;
+  currentPage: number;
+  stats: {
+    DRAFT: number;
+    PENDING: number;
+    REVIEW: number;
+    REVISION_REQUESTED: number;
+    APPROVED: number;
+    PUBLISHED: number;
+    REJECTED: number;
+  };
+}
+
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { message: '인증이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const params: StoryQueryParams = {
+      status: searchParams.get('status') || undefined,
+      search: searchParams.get('search') || undefined,
+      page: searchParams.get('page') || '1',
+      limit: searchParams.get('limit') || '10',
+    };
+
+    const page = parseInt(params.page!, 10);
+    const limit = parseInt(params.limit!, 10);
+
+    // Validate pagination parameters
+    if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1 || limit > 50) {
+      return NextResponse.json(
+        { message: '잘못된 페이지 매개변수입니다.' },
+        { status: 400 }
+      );
+    }
+
+    // Build where clause
+    const whereClause: Prisma.StoryWhereInput = {};
+
+    if (params.status) {
+      whereClause.status = params.status;
+    }
+
+    if (params.search) {
+      const searchTerm = params.search;
+      whereClause.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { content: { contains: searchTerm, mode: 'insensitive' } },
+        { recipientRegion: { contains: searchTerm, mode: 'insensitive' } },
+        { items: { some: { name: { contains: searchTerm, mode: 'insensitive' } } } }
+      ];
+    }
+
+    // Fetch stories with related data and stats
+    const [stories, totalStories, stats] = await Promise.all([
+      prisma.story.findMany({
+        where: whereClause,
+        include: {
+          items: true,
+          partner: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          statusHistory: {
+            include: {
+              changedBy: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            },
+            take: 1
+          }
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.story.count({ where: whereClause }),
+      prisma.story.groupBy({
+        by: ['status'],
+        _count: {
+          status: true
+        }
+      })
+    ]);
+
+    // Format stats
+    const formattedStats = {
+      DRAFT: 0,
+      PENDING: 0,
+      REVIEW: 0,
+      REVISION_REQUESTED: 0,
+      APPROVED: 0,
+      PUBLISHED: 0,
+      REJECTED: 0
+    };
+
+    stats.forEach(stat => {
+      if (stat.status in formattedStats) {
+        formattedStats[stat.status as keyof typeof formattedStats] = stat._count.status;
+      }
+    });
+
+    // Format response
+    const response: StoryResponse = {
+      stories,
+      totalPages: Math.ceil(totalStories / limit),
+      currentPage: page,
+      stats: formattedStats
+    };
+
+    return NextResponse.json(response);
+
+  } catch (error) {
+    console.error('Error fetching stories:', error);
+    
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { message: '사연 목록 조회에 실패했습니다.', error: error.message },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(
+      { message: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
-    // 파트너 권한 체크
-    if (!session?.user || session.user.role !== 'PARTNER') {
-      return new NextResponse('Unauthorized', { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json(
+        { message: '인증이 필요합니다.' },
+        { status: 401 }
+      );
     }
 
     const data = await request.json();
-    const { 
-      title, 
-      content, 
-      category, 
-      recipientName,
-      recipientPhone,
-      recipientAge, 
-      recipientGender, 
-      recipientRegion,
-      recipientAddress,
-      items 
-    } = data;
 
     // 필수 필드 검증
-    if (!title || !content || !category || !recipientName || !recipientPhone || 
-        !recipientAge || !recipientGender || !recipientRegion || !recipientAddress) {
-      return new NextResponse('Missing required fields', { status: 400 });
+    if (!data.title || !data.content || 
+        !data.recipientAge || !data.recipientGender || !data.recipientRegion) {
+      return NextResponse.json(
+        { message: '필수 항목이 누락되었습니다.' },
+        { status: 400 }
+      );
     }
 
-    // 사연 생성 (트랜잭션으로 처리)
-    const story = await prisma.$transaction(async (tx) => {
-      // 1. 사연 생성
-      const story = await tx.story.create({
-        data: {
-          title,
-          content,
-          category,
-          recipientName,
-          recipientPhone,
-          recipientAge: parseInt(recipientAge),
-          recipientGender,
-          recipientRegion,
-          recipientAddress,
-          status: 'DRAFT',
-          partnerId: session.user.id,
-        },
-      });
+    // 물품 검증
+    if (!data.items || data.items.length === 0) {
+      return NextResponse.json(
+        { message: '최소 1개 이상의 물품이 필요합니다.' },
+        { status: 400 }
+      );
+    }
 
-      // 2. 상품 정보 생성
-      if (items && items.length > 0) {
-        await tx.item.createMany({
-          data: items.map((item: any) => ({
+    // 사연 생성
+    const story = await prisma.story.create({
+      data: {
+        title: data.title,
+        content: data.content,
+        recipientAge: parseInt(data.recipientAge),
+        recipientGender: data.recipientGender,
+        recipientRegion: data.recipientRegion,
+        status: 'DRAFT',
+        partner: {
+          connect: {
+            id: session.user.id
+          }
+        },
+        items: {
+          create: data.items.map((item: any) => ({
             name: item.name,
             description: item.description,
-            price: item.price,
+            price: parseFloat(item.price),
             coupangUrl: item.coupangUrl,
-            storyId: story.id,
+            category: item.category,
           })),
-        });
-      }
-
-      // 3. 상태 변경 이력 기록
-      await tx.storyStatusHistory.create({
-        data: {
-          storyId: story.id,
-          fromStatus: 'DRAFT',
-          toStatus: 'DRAFT',
-          note: '사연 등록',
-          changedById: session.user.id,
         },
-      });
-
-      return story;
+        statusHistory: {
+          create: {
+            fromStatus: 'NEW',
+            toStatus: 'DRAFT',
+            note: '사연 등록',
+            changedBy: {
+              connect: {
+                id: session.user.id
+              }
+            }
+          }
+        }
+      },
+      include: {
+        items: true,
+        statusHistory: {
+          include: {
+            changedBy: true
+          }
+        },
+      },
     });
 
     return NextResponse.json(story);
   } catch (error) {
     console.error('Error creating story:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { message: '사연 등록에 실패했습니다.' },
+      { status: 500 }
+    );
   }
 } 

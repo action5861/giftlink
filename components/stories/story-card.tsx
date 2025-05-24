@@ -21,7 +21,8 @@ interface StoryCardProps {
     id: string;
     name: string;
     price: number;
-    coupangUrl: string;
+    coupangUrl: string | null;
+    description: string | null;
   }[];
 }
 

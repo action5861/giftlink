@@ -24,69 +24,11 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-
-// 임시 사연 데이터
-const mockStories = [
-  {
-    id: '1',
-    title: '겨울을 따뜻하게 보내고 싶어요',
-    status: 'PENDING',
-    category: '생활용품',
-    partner: '굿네이버스',
-    createdAt: new Date('2023-12-15T09:32:00'),
-  },
-  {
-    id: '2',
-    title: '학교 준비물이 필요해요',
-    status: 'APPROVED',
-    category: '교육',
-    partner: '세이브더칠드런',
-    createdAt: new Date('2023-12-10T14:25:00'),
-  },
-  {
-    id: '3',
-    title: '생리대가 필요해요',
-    status: 'PUBLISHED',
-    category: '위생용품',
-    partner: '굿네이버스',
-    createdAt: new Date('2023-11-28T11:43:00'),
-  },
-  {
-    id: '4',
-    title: '면접 준비를 위한 정장이 필요합니다',
-    status: 'PUBLISHED',
-    category: '의류',
-    partner: '사랑의 열매',
-    createdAt: new Date('2023-11-22T16:15:00'),
-  },
-  {
-    id: '5',
-    title: '아기 기저귀가 필요해요',
-    status: 'REVISION',
-    category: '육아',
-    partner: '유니세프',
-    createdAt: new Date('2023-12-05T10:08:00'),
-  },
-  {
-    id: '6',
-    title: '노인 영양제가 필요합니다',
-    status: 'REJECTED',
-    category: '건강',
-    partner: '행복나눔재단',
-    createdAt: new Date('2023-11-30T13:22:00'),
-  },
-  {
-    id: '7',
-    title: '장애인용 휠체어가 필요합니다',
-    status: 'PENDING',
-    category: '의료용품',
-    partner: '대한적십자사',
-    createdAt: new Date('2023-12-12T09:15:00'),
-  },
-];
+import { useToast } from '@/components/ui/use-toast';
+import { storyApi } from '@/lib/api/stories';
 
 // 상태별 배지 스타일 설정
-const statusStyles = {
+const statusStyles: Record<string, { variant: string; text: string }> = {
   DRAFT: { variant: 'outline', text: '작성 중' },
   PENDING: { variant: 'secondary', text: '검토 대기' },
   REVISION: { variant: 'warning', text: '수정 요청' },
@@ -96,80 +38,25 @@ const statusStyles = {
   REJECTED: { variant: 'destructive', text: '거부됨' },
 };
 
-// 카테고리 옵션
-const categories = [
-  '전체',
-  '생활용품',
-  '교육',
-  '위생용품',
-  '의류',
-  '육아',
-  '건강',
-  '의료용품',
+// 상태별 통계 카드 설정
+const statusCards = [
+  { status: 'TOTAL', title: '전체', color: 'bg-gray-100 text-gray-800' },
+  { status: 'PENDING', title: '검토 대기', color: 'bg-yellow-100 text-yellow-800' },
+  { status: 'REVISION', title: '수정 요청', color: 'bg-orange-100 text-orange-800' },
+  { status: 'APPROVED', title: '승인됨', color: 'bg-blue-100 text-blue-800' },
+  { status: 'PUBLISHED', title: '게시됨', color: 'bg-green-100 text-green-800' },
 ];
-
-// 상태 옵션
-const statuses = [
-  { value: '', label: '전체' },
-  { value: 'DRAFT', label: '작성 중' },
-  { value: 'PENDING', label: '검토 대기' },
-  { value: 'REVISION', label: '수정 요청' },
-  { value: 'APPROVED', label: '승인됨' },
-  { value: 'PUBLISHED', label: '게시됨' },
-  { value: 'FULFILLED', label: '완료됨' },
-  { value: 'REJECTED', label: '거부됨' },
-];
-
-// 상태별 통계 카드 생성
-const generateStatusCards = (stories: any[]) => {
-  const counts = {
-    TOTAL: stories.length,
-    PENDING: stories.filter(s => s.status === 'PENDING').length,
-    REVISION: stories.filter(s => s.status === 'REVISION').length,
-    APPROVED: stories.filter(s => s.status === 'APPROVED').length,
-    PUBLISHED: stories.filter(s => s.status === 'PUBLISHED').length,
-  };
-
-  return [
-    {
-      title: '전체 사연',
-      value: counts.TOTAL,
-      status: 'TOTAL',
-      color: 'bg-slate-100 text-slate-800',
-    },
-    {
-      title: '검토 대기',
-      value: counts.PENDING,
-      status: 'PENDING',
-      color: 'bg-yellow-100 text-yellow-800',
-    },
-    {
-      title: '수정 요청',
-      value: counts.REVISION,
-      status: 'REVISION',
-      color: 'bg-orange-100 text-orange-800',
-    },
-    {
-      title: '승인됨',
-      value: counts.APPROVED,
-      status: 'APPROVED',
-      color: 'bg-blue-100 text-blue-800',
-    },
-    {
-      title: '게시됨',
-      value: counts.PUBLISHED,
-      status: 'PUBLISHED',
-      color: 'bg-green-100 text-green-800',
-    },
-  ];
-};
 
 export default function StoriesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [stories, setStories] = useState<any[]>([]);
+  const [stats, setStats] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   
   // URL 파라미터에서 필터 가져오기
   const statusFilter = searchParams.get('status') || '';
@@ -177,35 +64,38 @@ export default function StoriesPage() {
   
   // 페이지 로드 시 데이터 가져오기
   useEffect(() => {
+    loadData();
+  }, [statusFilter, categoryFilter, searchQuery, currentPage]);
+
+  const loadData = async () => {
     setLoading(true);
-    
-    // 상태 및 카테고리 필터 적용
-    let filteredStories = [...mockStories];
-    
-    if (statusFilter) {
-      filteredStories = filteredStories.filter(story => story.status === statusFilter);
+    try {
+      // 사연 목록 조회
+      const storiesData = await storyApi.getStories({
+        search: searchQuery,
+        status: statusFilter,
+        category: categoryFilter,
+        page: currentPage,
+        limit: 10,
+      });
+      setStories(storiesData.stories);
+      setTotalPages(storiesData.totalPages);
+      setCurrentPage(storiesData.currentPage);
+
+      // 통계 데이터 조회
+      const statsData = await storyApi.getStats();
+      setStats(statsData.byStatus);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: '오류',
+        description: '데이터를 불러오는데 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    if (categoryFilter && categoryFilter !== '전체') {
-      filteredStories = filteredStories.filter(story => story.category === categoryFilter);
-    }
-    
-    // 검색어 필터 적용
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filteredStories = filteredStories.filter(
-        story => 
-          story.title.toLowerCase().includes(query) ||
-          story.partner.toLowerCase().includes(query)
-      );
-    }
-    
-    // 정렬: 최신순
-    filteredStories.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    
-    setStories(filteredStories);
-    setLoading(false);
-  }, [statusFilter, categoryFilter, searchQuery]);
+  };
   
   // 필터 변경 핸들러
   const handleFilterChange = (key: string, value: string) => {
@@ -219,34 +109,26 @@ export default function StoriesPage() {
     
     router.push(`/admin/stories?${params.toString()}`);
   };
-  
-  // 검색 핸들러
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    setSearchQuery(formData.get('searchQuery') as string || '');
+
+  // 검색어 변경 핸들러
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
   };
-  
+
   // 새로고침 핸들러
   const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setStories([...mockStories]);
-      setLoading(false);
-    }, 500);
+    loadData();
   };
-  
-  // 상태 배지 렌더링 함수
+
+  // 상태 배지 렌더링
   const renderStatusBadge = (status: string) => {
-    const style = statusStyles[status as keyof typeof statusStyles] || statusStyles.DRAFT;
+    const style = statusStyles[status] || { variant: 'outline', text: status };
     return (
-      <Badge variant={style.variant as any} className="capitalize">
+      <Badge variant={style.variant as any}>
         {style.text}
       </Badge>
     );
   };
-  
-  const statusCards = generateStatusCards(mockStories);
   
   return (
     <div className="space-y-6">
@@ -283,7 +165,9 @@ export default function StoriesPage() {
               <span className={`text-xs px-2 py-1 rounded-full ${card.color} mb-2`}>
                 {card.title}
               </span>
-              <span className="text-2xl font-bold">{card.value}</span>
+              <span className="text-2xl font-bold">
+                {card.status === 'TOTAL' ? stats.total || 0 : stats[card.status] || 0}
+              </span>
             </CardContent>
           </Card>
         ))}
@@ -293,68 +177,48 @@ export default function StoriesPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 flex flex-col md:flex-row gap-4">
-              {/* 상태 필터 */}
-              <div className="w-full md:w-1/3">
-                <label className="text-sm font-medium mb-1 block">
-                  상태
-                </label>
-                <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={statusFilter}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                >
-                  {statuses.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="제목 또는 파트너 검색..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  className="pl-8"
+                />
               </div>
-              
-              {/* 카테고리 필터 */}
-              <div className="w-full md:w-1/3">
-                <label className="text-sm font-medium mb-1 block">
-                  카테고리
-                </label>
-                <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={categoryFilter}
-                  onChange={(e) => handleFilterChange('category', e.target.value)}
-                >
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* 검색 폼 */}
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-1 block">
-                  검색
-                </label>
-                <form onSubmit={handleSearch} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      name="searchQuery"
-                      placeholder="제목 또는 파트너로 검색..."
-                      className="pl-9"
-                    />
-                  </div>
-                  <Button type="submit" size="sm" className="mt-0">
-                    검색
-                  </Button>
-                </form>
-              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleFilterChange('status', '')}
+                className={!statusFilter ? 'bg-primary text-primary-foreground' : ''}
+              >
+                전체
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleFilterChange('status', 'PENDING')}
+                className={statusFilter === 'PENDING' ? 'bg-primary text-primary-foreground' : ''}
+              >
+                검토 대기
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleFilterChange('status', 'REVISION')}
+                className={statusFilter === 'REVISION' ? 'bg-primary text-primary-foreground' : ''}
+              >
+                수정 요청
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
       
-      {/* 사연 목록 테이블 */}
+      {/* 사연 목록 */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center">
@@ -387,7 +251,7 @@ export default function StoriesPage() {
                   <TableRow key={story.id}>
                     <TableCell className="font-medium">{story.title}</TableCell>
                     <TableCell>{story.category}</TableCell>
-                    <TableCell>{story.partner}</TableCell>
+                    <TableCell>{story.partner.name}</TableCell>
                     <TableCell>{renderStatusBadge(story.status)}</TableCell>
                     <TableCell>{formatDate(story.createdAt, 'yyyy-MM-dd')}</TableCell>
                     <TableCell className="text-right">
