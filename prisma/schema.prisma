@@ -29,7 +29,6 @@ model User {
   favoriteStories FavoriteStory[]
   inviteToken     InviteToken?
   sentMessages    Message[]            @relation("SentMessages")
-  stories         Story[]
   statusChanges   StoryStatusHistory[]
   partner         Partner?             @relation(fields: [partnerId], references: [id])
 
@@ -41,22 +40,26 @@ model User {
 
 model Partner {
   id            String    @id @default(cuid())
-  name          String    @db.VarChar(100)
-  description   String?
-  logo          String?   @db.VarChar(255)
-  website       String?   @db.VarChar(255)
-  address       String?   @db.VarChar(255)
-  phoneNumber   String?   @db.VarChar(20)
-  contactPerson String?   @db.VarChar(100)
-  isVerified    Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
   isDeleted     Boolean   @default(false)
-  users         User[]
+  name          String
+  description   String?
+  logo          String?
+  website       String?
+  address       String?
+  phoneNumber   String?
+  contactPerson String?
+  email         String    @unique
+  isVerified    Boolean   @default(false)
 
-  @@index([isVerified])
-  @@index([isDeleted])
+  // Relations
+  users         User[]
+  stories       Story[]
+  messages      Message[]
+
+  @@map("partners")
 }
 
 model InviteToken {
@@ -101,7 +104,7 @@ model Story {
   favoritedBy      FavoriteStory[]
   items            Item[]
   messages         Message[]
-  partner          User                 @relation(fields: [partnerId], references: [id])
+  partner          Partner              @relation(fields: [partnerId], references: [id])
   statusHistory    StoryStatusHistory[]
 }
 
@@ -314,23 +317,22 @@ model ApiKey {
 }
 
 model Message {
-  id        String    @id @default(cuid())
-  content   String
-  senderId  String
-  storyId   String?
-  isRead    Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  isDeleted Boolean   @default(false)
-  sender    User      @relation("SentMessages", fields: [senderId], references: [id])
-  story     Story?    @relation(fields: [storyId], references: [id])
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  content    String
+  senderId   String
+  senderRole String
+  partnerId  String
+  storyId    String?
+  isRead     Boolean  @default(false)
 
-  @@index([senderId])
-  @@index([storyId])
-  @@index([isRead])
-  @@index([createdAt])
-  @@index([isDeleted])
+  // Relations
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  partner    Partner  @relation(fields: [partnerId], references: [id])
+  story      Story?   @relation(fields: [storyId], references: [id])
+
+  @@map("messages")
 }
 
 model FavoriteStory {

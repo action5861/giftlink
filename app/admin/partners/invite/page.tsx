@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChevronLeft, Loader2, Mail, Send } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { partnerApi } from '@/lib/api/partners';
 import { useToast } from '@/components/ui/use-toast';
@@ -27,25 +26,44 @@ export default function PartnerInvitePage() {
     
     const formData = new FormData(e.target as HTMLFormElement);
     const data = {
-      name: formData.get('name') as string,
-      organization: formData.get('organization') as string,
+      name: formData.get('organization') as string,
       email: formData.get('email') as string,
-      sendCopy: formData.get('sendCopy') === 'on',
+      contactPerson: formData.get('name') as string,
+      phoneNumber: formData.get('phoneNumber') as string,
+      website: formData.get('website') as string || undefined,
+      address: formData.get('address') as string || undefined,
     };
+
+    // 데이터 유효성 검사
+    if (!data.name || !data.email || !data.contactPerson || !data.phoneNumber) {
+      setError('필수 항목을 모두 입력해주세요.');
+      setLoading(false);
+      return;
+    }
+
+    if (data.website && !data.website.startsWith('http')) {
+      data.website = `https://${data.website}`;
+    }
     
     try {
-      await partnerApi.invitePartner(data);
+      const response = await partnerApi.invitePartner(data);
       setSuccess(true);
+      
+      toast({
+        title: '초대 성공',
+        description: '파트너 초대장이 성공적으로 발송되었습니다.',
+      });
       
       // 3초 후 파트너 목록 페이지로 리디렉션
       setTimeout(() => {
         router.push('/admin/partners');
       }, 3000);
-    } catch (err) {
-      setError('초대장 발송 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      console.error('Partner invite error:', err);
+      setError(err.message || '초대장 발송 중 오류가 발생했습니다.');
       toast({
         title: '초대 실패',
-        description: '파트너 초대장 발송에 실패했습니다. 다시 시도해주세요.',
+        description: err.message || '파트너 초대장 발송에 실패했습니다. 다시 시도해주세요.',
         variant: 'destructive',
       });
     } finally {
@@ -145,12 +163,34 @@ export default function PartnerInvitePage() {
                     placeholder="예: partner@example.com"
                   />
                 </div>
-                
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox id="sendCopy" name="sendCopy" />
-                  <Label htmlFor="sendCopy" className="font-normal">
-                    초대장 사본을 내 이메일로도 받기
-                  </Label>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">전화번호 *</Label>
+                  <Input
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    required
+                    placeholder="예: 010-1234-5678"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="website">웹사이트</Label>
+                  <Input
+                    id="website"
+                    name="website"
+                    type="url"
+                    placeholder="예: example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">주소</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    placeholder="예: 서울시 강남구"
+                  />
                 </div>
               </div>
               

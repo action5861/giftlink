@@ -29,7 +29,7 @@ import {
   Save
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { partnerApi, PartnerDetail } from '@/lib/api/partners';
+import { partnerApi, Partner } from '@/lib/api/partners';
 import { useToast } from '@/components/ui/use-toast';
 
 // 상태별 배지 스타일 설정
@@ -46,11 +46,11 @@ const statusStyles = {
 export default function PartnerDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [partner, setPartner] = useState<PartnerDetail | null>(null);
+  const [partner, setPartner] = useState<Partner | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<PartnerDetail | null>(null);
+  const [formData, setFormData] = useState<Partner | null>(null);
   const [message, setMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   
@@ -61,7 +61,7 @@ export default function PartnerDetailPage({ params }: { params: { id: string } }
   const loadPartnerData = async () => {
     try {
       setLoading(true);
-      const data = await partnerApi.getPartnerDetail(params.id);
+      const data = await partnerApi.getPartner(params.id);
       setPartner(data);
       setFormData(data);
     } catch (error) {
@@ -118,7 +118,11 @@ export default function PartnerDetailPage({ params }: { params: { id: string } }
     
     try {
       setSendingMessage(true);
-      await partnerApi.sendMessage(params.id, message);
+      await partnerApi.sendMessage(params.id, {
+        content: message,
+        subject: `${partner.name} 파트너에게 보내는 메시지`,
+        sendEmail: true
+      });
       setMessage('');
       toast({
         title: '메시지 전송 완료',
@@ -378,88 +382,34 @@ export default function PartnerDetailPage({ params }: { params: { id: string } }
           </Card>
           
           {/* 탭 콘텐츠: 사연 & 소속 사용자 */}
-          <Tabs defaultValue="stories">
+          <Tabs defaultValue="stories" className="space-y-4">
             <TabsList>
               <TabsTrigger value="stories" className="gap-1">
                 <FileText className="h-4 w-4" />
-                사연 목록
+                등록 사연 ({partner.storyCount})
               </TabsTrigger>
               <TabsTrigger value="users" className="gap-1">
                 <Users className="h-4 w-4" />
-                소속 사용자
+                소속 사용자 ({partner.userCount})
               </TabsTrigger>
             </TabsList>
             
             <TabsContent value="stories">
               <Card>
-                <CardContent className="p-6">
-                  {partner.stories && partner.stories.length > 0 ? (
-                    <div className="space-y-4">
-                      {partner.stories.map((story) => (
-                        <div key={story.id} className="flex justify-between items-center p-4 border rounded-md">
-                          <div>
-                            <h4 className="font-medium">{story.title}</h4>
-                            <div className="flex items-center gap-3 mt-1">
-                              {renderStatusBadge(story.status)}
-                              <span className="text-sm text-muted-foreground">
-                                {formatDate(story.createdAt, 'yyyy-MM-dd')}
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                          >
-                            <Link href={`/admin/stories/${story.id}`}>
-                              상세보기
-                            </Link>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground">
-                      등록된 사연이 없습니다.
-                    </p>
-                  )}
+                <CardContent className="p-4">
+                  <p className="text-muted-foreground">
+                    등록된 사연이 없습니다.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
             
             <TabsContent value="users">
               <Card>
-                <CardContent className="p-6">
-                  {partner.users && partner.users.length > 0 ? (
-                    <div className="space-y-4">
-                      {partner.users.map((user) => (
-                        <div key={user.id} className="flex justify-between items-center p-4 border rounded-md">
-                          <div>
-                            <h4 className="font-medium">{user.name}</h4>
-                            <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-3 mt-1">
-                              <span className="text-sm">{user.email}</span>
-                              <span className="text-xs text-muted-foreground">
-                                최근 로그인: {formatDate(user.lastLogin, 'yyyy-MM-dd HH:mm')}
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                          >
-                            <Link href={`/admin/users/${user.id}`}>
-                              상세보기
-                            </Link>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground">
-                      등록된 사용자가 없습니다.
-                    </p>
-                  )}
+                <CardContent className="p-4">
+                  <p className="text-muted-foreground">
+                    소속된 사용자가 없습니다.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -521,13 +471,38 @@ export default function PartnerDetailPage({ params }: { params: { id: string } }
                 <Button
                   variant="outline"
                   className="w-full justify-start text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
-                  onClick={() => {
-                    setFormData((prev: any) => ({ ...prev, isVerified: true }));
-                    handleSave();
+                  onClick={async () => {
+                    try {
+                      setSaving(true);
+                      const updatedPartner = await partnerApi.updatePartner(params.id, { isVerified: true });
+                      setPartner(updatedPartner);
+                      toast({
+                        title: '인증 완료',
+                        description: '파트너가 성공적으로 인증되었습니다.',
+                      });
+                    } catch (error) {
+                      toast({
+                        title: '인증 실패',
+                        description: '파트너 인증에 실패했습니다. 다시 시도해주세요.',
+                        variant: 'destructive',
+                      });
+                    } finally {
+                      setSaving(false);
+                    }
                   }}
+                  disabled={saving}
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  파트너 인증
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      인증 중...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      파트너 인증
+                    </>
+                  )}
                 </Button>
               )}
               

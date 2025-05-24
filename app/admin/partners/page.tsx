@@ -40,16 +40,23 @@ export default function PartnersPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('파트너 목록 로딩 시작');
+      
       const [partnersData, statsData] = await Promise.all([
         partnerApi.getPartners(),
         partnerApi.getPartnerStats(),
       ]);
+      
+      console.log('로드된 파트너 데이터:', partnersData);
+      console.log('로드된 통계 데이터:', statsData);
+      
       setPartners(partnersData);
       setStats(statsData);
     } catch (error) {
+      console.error('파트너 데이터 로드 실패:', error);
       toast({
         title: '데이터 로드 실패',
-        description: '파트너 정보를 불러오는데 실패했습니다. 다시 시도해주세요.',
+        description: error instanceof Error ? error.message : '파트너 정보를 불러오는데 실패했습니다. 다시 시도해주세요.',
         variant: 'destructive',
       });
     } finally {
