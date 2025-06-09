@@ -58,6 +58,35 @@ interface StatusHistory {
   createdAt: Date;
 }
 
+interface StoryApiResponse {
+  id: string;
+  title: string;
+  content: string;
+  status: StoryStatus;
+  category: string;
+  recipientAge: number;
+  recipientGender: string;
+  partner: {
+    id: string;
+    name: string;
+  };
+  imageUrl?: string;
+  imagePrompt?: string;
+  adminNotes?: string;
+  createdAt: string;
+  publishedAt?: string;
+  items: StoryItem[];
+  statusHistory: {
+    id: string;
+    fromStatus: string;
+    toStatus: string;
+    note: string;
+    changedBy: string;
+    createdAt: string;
+  }[];
+  donations: any[];
+}
+
 interface Story {
   id: string;
   title: string;
@@ -120,8 +149,26 @@ export default function StoryDetailPage({ params }: { params: { id: string } }) 
   const loadStory = async () => {
     try {
       setLoading(true);
-      const data = await storyApi.getStory(params.id);
-      setStory(data);
+      const data = await storyApi.getStory(params.id) as StoryApiResponse;
+      // API 응답의 날짜 문자열을 Date 객체로 변환
+      const storyData: Story = {
+        ...data,
+        createdAt: new Date(data.createdAt),
+        publishedAt: data.publishedAt ? new Date(data.publishedAt) : undefined,
+        statusHistory: data.statusHistory.map((history) => ({
+          id: history.id,
+          fromStatus: history.fromStatus as StoryStatus,
+          toStatus: history.toStatus as StoryStatus,
+          note: history.note,
+          changedBy: {
+            id: history.changedBy,
+            name: history.changedBy,
+            email: history.changedBy
+          },
+          createdAt: new Date(history.createdAt)
+        }))
+      };
+      setStory(storyData);
       setImagePrompt(data.imagePrompt || '');
     } catch (error) {
       console.error('Error loading story:', error);
@@ -160,7 +207,7 @@ export default function StoryDetailPage({ params }: { params: { id: string } }) 
 
   // 관리자 액션 카드 렌더링
   const renderAdminActions = () => {
-    if (userRole !== 'ADMIN') return null;
+    if (userRole !== 'ADMIN' || !story) return null;
 
     return (
       <Card>
@@ -221,14 +268,36 @@ export default function StoryDetailPage({ params }: { params: { id: string } }) 
 
             {/* APPROVED 상태일 때 */}
             {story.status === 'APPROVED' && (
-              <Button
-                variant="default"
-                onClick={() => handleStatusChange('PUBLISHED')}
-                disabled={actionLoading}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                게시
-              </Button>
+              <>
+                <Button
+                  variant="default"
+                  onClick={() => handleStatusChange('PUBLISHED')}
+                  disabled={actionLoading}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  게시
+                </Button>
+                <div className="w-full mt-4">
+                  <h3 className="font-semibold mb-2">이미지 생성 프롬프트</h3>
+                  <Textarea
+                    placeholder="이미지 생성을 위한 프롬프트를 입력하세요"
+                    value={imagePrompt}
+                    onChange={(e) => setImagePrompt(e.target.value)}
+                  />
+                  <Button
+                    className="mt-2"
+                    onClick={handleGenerateImage}
+                    disabled={generatingImage || !imagePrompt}
+                  >
+                    {generatingImage ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4 mr-2" />
+                    )}
+                    이미지 생성
+                  </Button>
+                </div>
+              </>
             )}
 
             {/* PUBLISHED 상태일 때 */}
@@ -241,31 +310,6 @@ export default function StoryDetailPage({ params }: { params: { id: string } }) 
                 <CheckCircle className="h-4 w-4 mr-2" />
                 완료 처리
               </Button>
-            )}
-
-            {/* 이미지 생성 (APPROVED 상태일 때만) */}
-            {story.status === 'APPROVED' && (
-              <div className="w-full mt-4">
-                <h3 className="font-semibold mb-2">이미지 생성 프롬프트</h3>
-                <Textarea
-                  placeholder="이미지 생성을 위한 프롬프트를 입력하세요"
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                />
-                <Button
-                  variant="default"
-                  onClick={handleGenerateImage}
-                  disabled={generatingImage || !imagePrompt}
-                  className="mt-2"
-                >
-                  {generatingImage ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <ImagePlus className="h-4 w-4 mr-2" />
-                  )}
-                  이미지 생성
-                </Button>
-              </div>
             )}
           </div>
 
@@ -381,7 +425,7 @@ export default function StoryDetailPage({ params }: { params: { id: string } }) 
             </div>
             <div>
               <h3 className="font-semibold mb-2">파트너</h3>
-              <p className="text-muted-foreground">{story.partner.name}</p>
+              <p className="text-muted-foreground">{story.partner?.name || '미지정'}</p>
             </div>
           </CardContent>
         </Card>

@@ -114,7 +114,7 @@ export default function PartnerDetailPage({ params }: { params: { id: string } }
   };
   
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !partner) return;
     
     try {
       setSendingMessage(true);

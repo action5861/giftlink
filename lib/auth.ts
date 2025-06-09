@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import type { User } from 'next-auth';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -32,10 +33,11 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          name: user.name,
+          name: user.name || '',
           email: user.email,
           role: user.role,
-        };
+          partnerId: user.partnerId,
+        } as User;
       },
     }),
   ],
@@ -44,6 +46,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.partnerId = user.partnerId;
       }
       return token;
     },
@@ -51,6 +54,7 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.partnerId = token.partnerId as string;
       }
       return session;
     },

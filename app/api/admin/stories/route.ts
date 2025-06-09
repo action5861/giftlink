@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Prisma } from '@prisma/client';
+import { Prisma, StoryStatus } from '@prisma/client';
 
 // Type definitions for better type safety
 interface StoryQueryParams {
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     const whereClause: Prisma.StoryWhereInput = {};
 
     if (params.status) {
-      whereClause.status = params.status;
+      whereClause.status = params.status as StoryStatus;
     }
 
     if (params.search) {
@@ -166,24 +166,20 @@ export async function POST(request: Request) {
 
     const data = await request.json();
 
-    // 필수 필드 검증
-    if (!data.title || !data.content || 
-        !data.recipientAge || !data.recipientGender || !data.recipientRegion) {
+    // Check if user is admin
+    const isAdmin = session.user.role === 'ADMIN';
+
+    // partnerId: from body (for admin) or from session (for partner)
+    const partnerId = isAdmin ? data.partnerId : session.user.partnerId;
+
+    // Validate required fields
+    if (!data.title || !data.content || !data.recipientAge || !data.recipientGender || !data.recipientRegion) {
       return NextResponse.json(
         { message: '필수 항목이 누락되었습니다.' },
         { status: 400 }
       );
     }
 
-    // 물품 검증
-    if (!data.items || data.items.length === 0) {
-      return NextResponse.json(
-        { message: '최소 1개 이상의 물품이 필요합니다.' },
-        { status: 400 }
-      );
-    }
-
-    // 사연 생성
     const story = await prisma.story.create({
       data: {
         title: data.title,
@@ -191,12 +187,12 @@ export async function POST(request: Request) {
         recipientAge: parseInt(data.recipientAge),
         recipientGender: data.recipientGender,
         recipientRegion: data.recipientRegion,
-        status: 'DRAFT',
-        partner: {
+        status: StoryStatus.DRAFT,
+        partner: partnerId ? {
           connect: {
-            id: session.user.id
+            id: partnerId
           }
-        },
+        } : undefined,
         items: {
           create: data.items.map((item: any) => ({
             name: item.name,
@@ -208,7 +204,7 @@ export async function POST(request: Request) {
         },
         statusHistory: {
           create: {
-            fromStatus: 'NEW',
+            fromStatus: 'DRAFT',
             toStatus: 'DRAFT',
             note: '사연 등록',
             changedBy: {
@@ -232,8 +228,16 @@ export async function POST(request: Request) {
     return NextResponse.json(story);
   } catch (error) {
     console.error('Error creating story:', error);
+    
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { message: '사연 등록에 실패했습니다.', error: error.message },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { message: '사연 등록에 실패했습니다.' },
+      { message: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

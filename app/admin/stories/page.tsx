@@ -84,7 +84,7 @@ export default function StoriesPage() {
 
       // 통계 데이터 조회
       const statsData = await storyApi.getStats();
-      setStats(statsData.byStatus);
+      setStats(statsData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -251,7 +251,7 @@ export default function StoriesPage() {
                   <TableRow key={story.id}>
                     <TableCell className="font-medium">{story.title}</TableCell>
                     <TableCell>{story.category}</TableCell>
-                    <TableCell>{story.partner.name}</TableCell>
+                    <TableCell>{story.partner?.name || '미지정'}</TableCell>
                     <TableCell>{renderStatusBadge(story.status)}</TableCell>
                     <TableCell>{formatDate(story.createdAt, 'yyyy-MM-dd')}</TableCell>
                     <TableCell className="text-right">
